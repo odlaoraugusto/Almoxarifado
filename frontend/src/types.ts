@@ -129,6 +129,7 @@ export interface PedidoOut {
   status: StatusPedido;
   data_execucao: string | null;
   usuario_execucao_id: number | null;
+  usuario_execucao?: { id: number; nome: string; perfil: Perfil } | null;
   itens: PedidoItemOut[];
 }
 

@@ -922,6 +922,106 @@ tbody tr.selecionada {
   margin-bottom: 0;
 }
 
+/* ---- painel de pedidos: seleção em lote e modal de conferência ---- */
+.barra-lote {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--accent-strong);
+}
+.barra-lote-botoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chk-col {
+  width: 30px;
+}
+.itens-resumo {
+  font-size: 12px;
+  max-width: 280px;
+  line-height: 1.45;
+}
+.itens-resumo .obs {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 2px;
+}
+.acoes-linha {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 18, 28, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+.modal-box {
+  background: var(--surface);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.modal-box h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+.modal-box .sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+.item-conferencia {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: var(--surface-2);
+}
+.item-conferencia .titulo-item {
+  font-size: 12.5px;
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+.item-conferencia .titulo-item .qtd-pedida {
+  font-weight: 500;
+  color: var(--muted);
+}
+.modal-botoes {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+.modal-botoes .btn {
+  flex: 1;
+}
+
 /* ---- responsividade (shell autenticado) ---- */
 @media (max-width: 900px) {
   .app {
