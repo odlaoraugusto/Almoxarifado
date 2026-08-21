@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitação de Material - Almoxarifado</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --roxo-principal: #61358c;
+            --lavanda: #7572a7;
+            --aqua: #79bfb4;
+            --verde-menta: #73d9a8;
+            --cinza-escuro: #575756;
+            --cinza-claro: #f4f4f6;
+            --branco: #ffffff;
+            --borda: #dcdbe6;
+            --vermelho: #e74c3c;
+            --vermelho-fundo: #fdf2f2;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: var(--cinza-escuro);
+        }
+
+        body {
+            background-color: var(--cinza-claro);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .validation-alert {
+            display: none;
+            width: 100%;
+            max-width: 900px;
+            background-color: var(--vermelho-fundo);
+            border: 1px solid var(--vermelho);
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        .validation-alert h4 { color: var(--vermelho); font-size: 13.5px; margin-bottom: 5px; font-weight: 700; }
+        .validation-alert ul { list-style-type: disc; margin-left: 20px; font-size: 11.5px; }
+
+        .conexao-alert {
+            display: none;
+            width: 100%;
+            max-width: 900px;
+            background: #fff8e6;
+            border: 1px solid #e0b23d;
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+
+        .container {
+            background-color: var(--branco);
+            width: 100%;
+            max-width: 900px;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--borda);
+        }
+
+        header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            border-bottom: 3px solid var(--roxo-principal);
+            padding-bottom: 12px;
+        }
+        h1 { color: var(--roxo-principal); font-size: 20px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; text-align: center; }
+        .subtitle { font-size: 12px; color: var(--lavanda); font-weight: 600; margin-top: 4px; text-transform: uppercase; }
+
+        section { border: 1px solid var(--lavanda); border-radius: 6px; padding: 15px; margin-bottom: 15px; position: relative; background-color: var(--branco); }
+        .section-title { background-color: var(--roxo-principal); color: var(--branco); font-size: 12px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; position: absolute; top: -11px; left: 15px; border-radius: 3px; }
+
+        .grid { display: grid; gap: 12px; margin-top: 5px; }
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+        @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+
+        .form-group { display: flex; flex-direction: column; }
+        label { font-size: 12px; font-weight: 700; margin-bottom: 5px; text-transform: uppercase; color: var(--roxo-principal); }
+
+        input[type="text"], input[type="number"], select, textarea {
+            width: 100%; padding: 8px 10px; font-size: 13px; border: 1px solid var(--lavanda);
+            border-radius: 4px; background-color: var(--branco); outline: none; height: 36px;
+        }
+        textarea { height: 60px; resize: vertical; padding-top: 8px; font-family: inherit; }
+        input:focus, select:focus, textarea:focus { border-color: var(--aqua); box-shadow: 0 0 0 2px rgba(121, 191, 180, 0.2); }
+        input:disabled, select:disabled, button:disabled { background-color: #f4f4f6; cursor: not-allowed; }
+        .input-error { border-color: var(--vermelho) !important; background-color: var(--vermelho-fundo) !important; }
+
+        /* --- BUSCA DE ITEM COM SUGESTÕES --- */
+        .busca-item-wrapper { position: relative; }
+        .busca-item-linha { display: flex; gap: 8px; }
+        .busca-item-linha input { flex: 1; }
+
+        .btn-adicionar {
+            flex-shrink: 0;
+            display: flex; align-items: center; gap: 6px;
+            padding: 0 16px;
+            height: 36px;
+            font-size: 12.5px;
+            font-weight: 700;
+            border: 1px solid var(--roxo-principal);
+            border-radius: 4px;
+            background-color: var(--branco);
+            color: var(--roxo-principal);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background-color 0.15s ease;
+        }
+        .btn-adicionar:not(:disabled):hover { background-color: var(--roxo-principal); color: var(--branco); }
+        .btn-adicionar:disabled { border-color: var(--borda); color: #aaa; }
+
+        .lista-sugestoes {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            width: 100%;
+            max-height: 240px;
+            overflow-y: auto;
+            background: var(--branco);
+            border: 1px solid var(--lavanda);
+            border-radius: 6px;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+            z-index: 30;
+            list-style: none;
+        }
+        .lista-sugestoes li {
+            padding: 9px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            border-bottom: 1px solid var(--cinza-claro);
+            font-size: 12.5px;
+        }
+        .lista-sugestoes li:last-child { border-bottom: none; }
+        .lista-sugestoes li:hover,
+        .lista-sugestoes li.ativa { background-color: #f4f1f9; }
+        .lista-sugestoes li .nome-item { font-weight: 600; color: var(--cinza-escuro); }
+        .lista-sugestoes li .nome-item span { color: var(--roxo-principal); }
+        .lista-sugestoes li .badge-categoria {
+            flex-shrink: 0;
+            background: #f0edf5; padding: 2px 7px; border-radius: 4px;
+            font-size: 10px; color: var(--roxo-principal); font-weight: 700; text-transform: uppercase;
+        }
+        .lista-sugestoes li.ja-adicionado { opacity: 0.5; cursor: default; }
+        .lista-sugestoes .sem-resultado { padding: 10px 12px; font-size: 12px; color: #999; font-style: italic; cursor: default; }
+
+        .estoque-status { font-size: 11px; margin-top: 6px; color: var(--lavanda); }
+        .estoque-status.erro { color: var(--vermelho); }
+
+        .table-container { width: 100%; overflow-x: auto; margin-top: 14px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        th { background-color: #faf9fc; color: var(--roxo-principal); font-size: 11px; text-transform: uppercase; font-weight: 700; text-align: left; padding: 8px; border-bottom: 2px solid var(--lavanda); }
+        td { padding: 8px; border-bottom: 1px solid var(--borda); vertical-align: middle; }
+        .qtd-input { width: 70px; height: 32px; padding: 4px; text-align: center; }
+        .btn-remover { background: none; border: none; color: var(--vermelho); cursor: pointer; font-size: 16px; line-height: 1; padding: 4px; }
+
+        .btn-acao {
+            border: none; padding: 12px 25px; font-size: 13px; font-weight: bold; border-radius: 5px; cursor: pointer;
+            transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px;
+            background-color: var(--verde-menta); color: var(--cinza-escuro); width: 100%; margin-top: 10px;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.05);
+        }
+        .btn-acao:hover { background-color: #5bbd90; transform: translateY(-1px); }
+        .btn-acao:disabled { background-color: var(--borda); cursor: not-allowed; transform: none; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .modal-content { background-color: var(--branco); border-radius: 8px; width: 90%; max-width: 450px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 2px solid var(--roxo-principal); }
+        .modal-header { color: var(--roxo-principal); font-size: 16px; font-weight: 700; margin-bottom: 10px; text-transform: uppercase; border-bottom: 2px solid var(--aqua); padding-bottom: 6px; }
+        .modal-body { font-size: 13px; line-height: 1.5; margin-bottom: 15px; color: var(--cinza-escuro); }
+        .btn-modal { background-color: var(--roxo-principal); color: var(--branco); border: none; padding: 10px 15px; font-size: 12px; font-weight: bold; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 8px; }
+        .btn-modal:hover { background-color: #4b2670; }
+        .btn-modal.secundario { background-color: var(--branco); color: var(--roxo-principal); border: 1px solid var(--roxo-principal); }
+
+        .hidden { display: none !important; }
+        .spinner { border: 4px solid var(--lavanda); border-top: 4px solid var(--roxo-principal); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="validation-alert" id="validationAlert">
+    <h4>Falta preencher os seguintes campos obrigatórios:</h4>
+    <ul id="validationList"></ul>
+</div>
+
+<div class="conexao-alert" id="conexaoAlert">
+    ⚠️ Não foi possível carregar o estoque do Google Sheets. Verifique a conexão ou a implantação do Apps Script.
+</div>
+
+<div class="container">
+    <header>
+        <h1>Solicitação de Materiais - Almoxarifado</h1>
+        <div class="subtitle">[Nome da instituição — redigido neste repositório público]</div>
+    </header>
+
+    <form id="formAlmoxarifado" onsubmit="event.preventDefault(); processarEnvioPedido();">
+
+        <section>
+            <div class="section-title">Identificação do Setor</div>
+            <div class="grid grid-2">
+                <div class="form-group">
+                    <label>Setor Solicitante *</label>
+                    <select id="setorSolicitante" data-label="Setor Solicitante" required>
+                        <option value="">Carregando setores...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Responsável pelo Pedido *</label>
+                    <input type="text" id="responsavel" data-label="Responsável pelo Pedido" required placeholder="Nome do colaborador">
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="section-title">Itens Requisitados</div>
+
+            <div class="form-group">
+                <label>Buscar Material no Estoque</label>
+                <div class="busca-item-wrapper">
+                    <div class="busca-item-linha">
+                        <input type="text" id="buscaItem" placeholder="Digite o código ou nome do material..." autocomplete="off">
+                        <button type="button" class="btn-adicionar" id="btnAdicionarItem" disabled>+ Adicionar</button>
+                    </div>
+                    <ul class="lista-sugestoes hidden" id="listaSugestoes"></ul>
+                </div>
+                <div class="estoque-status" id="estoqueStatus">Carregando estoque do Google Sheets...</div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Item Selecionado</th>
+                            <th style="width: 22%;">Categoria</th>
+                            <th style="width: 18%;">Quantidade *</th>
+                            <th style="width: 10%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpoTabelaItens">
+                        <tr id="linhaVazia">
+                            <td colspan="4" style="text-align: center; color: #888; font-style: italic;">Nenhum item adicionado ainda.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="form-group" style="margin-top: 12px;">
+                <label>Observação (opcional)</label>
+                <textarea id="observacao" placeholder="Ex: uso emergencial, cobertura de plantão, etc."></textarea>
+            </div>
+        </section>
+
+        <button type="submit" class="btn-acao" id="btnEnviar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            Confirmar Pedido de Material
+        </button>
+    </form>
+</div>
+
+<div id="modalStatus" class="modal-overlay hidden">
+    <div class="modal-content" style="text-align: center;">
+        <div id="spinnerBox">
+            <div class="spinner"></div>
+            <div class="modal-header" style="border:none; text-align:center;">Processando Pedido...</div>
+            <div class="modal-body">Gravando solicitação na planilha do Google Sheets.</div>
+        </div>
+        <div id="sucessoBox" class="hidden">
+            <div class="modal-header" style="color: var(--verde-menta);">Pedido Registrado!</div>
+            <div class="modal-body">
+                O seu pedido foi gerado com sucesso sob o código único: <br><b id="codigoGerado" style="font-size: 18px; color: var(--roxo-principal);"></b>
+            </div>
+            <button type="button" class="btn-modal" onclick="baixarComprovantePDF()">Baixar Comprovante em PDF</button>
+            <button type="button" class="btn-modal secundario" onclick="fecharModal()">Fechar e Novo Pedido</button>
+        </div>
+        <div id="erroBox" class="hidden">
+            <div class="modal-header" style="color: var(--vermelho);">Falha ao Registrar</div>
+            <div class="modal-body" id="erroMensagem">Não foi possível gravar o pedido na planilha do Google Sheets. Tente novamente.</div>
+            <button type="button" class="btn-modal" onclick="document.getElementById('modalStatus').classList.add('hidden')">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ============================================================
+       CONFIGURAÇÃO — cole aqui a URL do Web App do Apps Script
+       (ver "Orientacoes_Almoxarifado_Google.md" para o deploy).
+       É a implantação PÚBLICA (qualquer pessoa com o link).
+       ============================================================ */
+    const URL_APPS_SCRIPT = "SUA_URL_DE_IMPLANTACAO_PUBLICA_AQUI";
+    const URL_LISTAR_ESTOQUE = URL_APPS_SCRIPT + "?action=estoque";
+    const URL_LISTAR_SETORES = URL_APPS_SCRIPT + "?action=setores";
+    const URL_REGISTRAR_PEDIDO = URL_APPS_SCRIPT;
+
+    // Dados de exemplo usados apenas quando as URLs acima não estiverem configuradas,
+    // para permitir testar o layout localmente antes de ligar ao Google Sheets.
+    const ESTOQUE_DEMO = [
+        { codigo: "MAT001", nome: "Luvas de Procedimento (M)", apresentacao: "Caixa c/ 100", categoria: "Mat. Med." },
+        { codigo: "MAT002", nome: "Seringa 10ml s/ Agulha", apresentacao: "Caixa c/ 50", categoria: "Mat. Med." },
+        { codigo: "EPI015", nome: "Máscara N95", apresentacao: "Unidade", categoria: "EPI/SIAST" },
+        { codigo: "HIG102", nome: "Álcool Gel 70% 500ml", apresentacao: "Frasco", categoria: "Higienização" },
+        { codigo: "MAT089", nome: "Scalp 23G", apresentacao: "Unidade", categoria: "Mat. Med." }
+    ];
+
+    const SETORES_DEMO = ["UTI Neonatal", "Maternidade - Ala A", "Centro Cirúrgico", "Emergência Obstétrica", "Farmácia Satélite", "Enfermaria Pediátrica"];
+
+    let estoqueItens = [];       // array completo carregado do Google Sheets (ou demo)
+    let mapaEstoque = {};        // codigo -> item
+    let itensAdicionados = {};   // codigo -> quantidade (itens já colocados na tabela do pedido)
+    let itemSelecionadoNaBusca = null; // codigo do item destacado/escolhido na busca, antes de clicar em "Adicionar"
+    let indiceAtivoSugestao = -1;
+    let modoDemo = false;
+
+    const inputBusca = () => document.getElementById('buscaItem');
+    const listaSugestoesEl = () => document.getElementById('listaSugestoes');
+    const btnAdicionar = () => document.getElementById('btnAdicionarItem');
+
+    window.addEventListener('DOMContentLoaded', () => {
+        carregarEstoque();
+        carregarSetores();
+
+        inputBusca().addEventListener('input', aoDigitarBusca);
+        inputBusca().addEventListener('keydown', aoTeclarBusca);
+        inputBusca().addEventListener('focus', () => { if (inputBusca().value.trim()) renderizarSugestoes(inputBusca().value); });
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.busca-item-wrapper')) fecharSugestoes();
+        });
+        btnAdicionar().addEventListener('click', adicionarItemSelecionado);
+    });
+
+    async function carregarEstoque() {
+        const statusEl = document.getElementById('estoqueStatus');
+        const conexaoAlert = document.getElementById('conexaoAlert');
+
+        if (URL_LISTAR_ESTOQUE.includes("SUA_URL")) {
+            modoDemo = true;
+            statusEl.textContent = "Modo de teste local — configure URL_LISTAR_ESTOQUE para carregar o estoque real do Google Sheets.";
+            definirEstoque(ESTOQUE_DEMO);
+            return;
+        }
+
+        try {
+            statusEl.textContent = "Carregando estoque do Google Sheets...";
+            const resposta = await fetch(URL_LISTAR_ESTOQUE, { method: 'GET' });
+            if (!resposta.ok) throw new Error('Resposta HTTP ' + resposta.status);
+            const dados = await resposta.json();
+            const linhas = Array.isArray(dados) ? dados : (dados.value || []);
+
+            const itens = linhas
+                .map(l => ({ codigo: l.codigo || '', nome: l.nome || '', apresentacao: l.apresentacao || '', categoria: l.categoria || '' }))
+                .filter(i => i.codigo);
+
+            if (itens.length === 0) throw new Error('Estoque vazio ou formato de resposta inesperado.');
+
+            statusEl.textContent = `${itens.length} itens disponíveis no estoque.`;
+            definirEstoque(itens);
+        } catch (erro) {
+            console.error(erro);
+            statusEl.textContent = "Falha ao carregar o estoque.";
+            statusEl.classList.add('erro');
+            conexaoAlert.style.display = 'block';
+            document.getElementById('btnEnviar').disabled = true;
+            inputBusca().disabled = true;
+        }
+    }
+
+    function definirEstoque(itens) {
+        estoqueItens = itens;
+        mapaEstoque = {};
+        itens.forEach(i => mapaEstoque[i.codigo] = i);
+    }
+
+    async function carregarSetores() {
+        const selectSetor = document.getElementById('setorSolicitante');
+
+        const preencher = (setores) => {
+            selectSetor.innerHTML = '<option value="">Selecione o Setor...</option>' +
+                setores.map(s => `<option value="${s}">${s}</option>`).join('');
+        };
+
+        if (URL_LISTAR_SETORES.includes("SUA_URL")) {
+            preencher(SETORES_DEMO);
+            return;
+        }
+
+        try {
+            const resposta = await fetch(URL_LISTAR_SETORES, { method: 'GET' });
+            if (!resposta.ok) throw new Error('Resposta HTTP ' + resposta.status);
+            const dados = await resposta.json();
+            const setores = (Array.isArray(dados) ? dados : (dados.value || [])).filter(Boolean);
+            if (setores.length === 0) throw new Error('Nenhum setor encontrado.');
+            preencher(setores);
+        } catch (erro) {
+            console.error('Falha ao carregar setores:', erro);
+            selectSetor.innerHTML = '<option value="">Não foi possível carregar os setores — recarregue a página</option>';
+        }
+    }
+
+    function normalizar(texto) {
+        return (texto || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    }
+
+    function aoDigitarBusca() {
+        itemSelecionadoNaBusca = null;
+        btnAdicionar().disabled = true;
+        renderizarSugestoes(inputBusca().value);
+    }
+
+    function renderizarSugestoes(termo) {
+        const lista = listaSugestoesEl();
+        const termoNormalizado = normalizar(termo.trim());
+
+        if (!termoNormalizado) { fecharSugestoes(); return; }
+
+        const resultados = estoqueItens.filter(item =>
+            normalizar(item.codigo).includes(termoNormalizado) || normalizar(item.nome).includes(termoNormalizado)
+        ).slice(0, 8);
+
+        indiceAtivoSugestao = -1;
+        lista.innerHTML = '';
+
+        if (resultados.length === 0) {
+            lista.innerHTML = '<li class="sem-resultado">Nenhum material encontrado</li>';
+            lista.classList.remove('hidden');
+            return;
+        }
+
+        resultados.forEach(item => {
+            const jaAdicionado = itensAdicionados.hasOwnProperty(item.codigo);
+            const li = document.createElement('li');
+            if (jaAdicionado) li.classList.add('ja-adicionado');
+            li.dataset.codigo = item.codigo;
+            li.innerHTML = `
+                <span class="nome-item"><span>${item.codigo}</span> — ${item.nome}${jaAdicionado ? ' (já adicionado)' : ''}</span>
+                <span class="badge-categoria">${item.categoria || '—'}</span>
+            `;
+            if (!jaAdicionado) li.addEventListener('click', () => escolherSugestao(item));
+            lista.appendChild(li);
+        });
+
+        lista.classList.remove('hidden');
+    }
+
+    function escolherSugestao(item) {
+        itemSelecionadoNaBusca = item.codigo;
+        inputBusca().value = `${item.codigo} - ${item.nome}`;
+        btnAdicionar().disabled = false;
+        fecharSugestoes();
+        btnAdicionar().focus();
+    }
+
+    function fecharSugestoes() {
+        listaSugestoesEl().classList.add('hidden');
+        listaSugestoesEl().innerHTML = '';
+        indiceAtivoSugestao = -1;
+    }
+
+    function aoTeclarBusca(e) {
+        const lista = listaSugestoesEl();
+        const itens = Array.from(lista.querySelectorAll('li[data-codigo]'));
+
+        if (e.key === 'ArrowDown' && itens.length) {
+            e.preventDefault();
+            indiceAtivoSugestao = (indiceAtivoSugestao + 1) % itens.length;
+            destacarSugestao(itens);
+        } else if (e.key === 'ArrowUp' && itens.length) {
+            e.preventDefault();
+            indiceAtivoSugestao = (indiceAtivoSugestao - 1 + itens.length) % itens.length;
+            destacarSugestao(itens);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (indiceAtivoSugestao >= 0 && itens[indiceAtivoSugestao]) {
+                itens[indiceAtivoSugestao].click();
+            } else if (itemSelecionadoNaBusca) {
+                adicionarItemSelecionado();
+            } else if (itens.length === 1) {
+                itens[0].click();
+            }
+        } else if (e.key === 'Escape') {
+            fecharSugestoes();
+        }
+    }
+
+    function destacarSugestao(itens) {
+        itens.forEach((li, idx) => li.classList.toggle('ativa', idx === indiceAtivoSugestao));
+        if (itens[indiceAtivoSugestao]) itens[indiceAtivoSugestao].scrollIntoView({ block: 'nearest' });
+    }
+
+    function adicionarItemSelecionado() {
+        if (!itemSelecionadoNaBusca || !mapaEstoque[itemSelecionadoNaBusca]) return;
+        if (!itensAdicionados.hasOwnProperty(itemSelecionadoNaBusca)) {
+            itensAdicionados[itemSelecionadoNaBusca] = 1;
+        }
+        renderizarTabelaItens();
+
+        inputBusca().value = '';
+        itemSelecionadoNaBusca = null;
+        btnAdicionar().disabled = true;
+        inputBusca().focus();
+    }
+
+    function renderizarTabelaItens() {
+        const corpoTabela = document.getElementById('corpoTabelaItens');
+        const codigos = Object.keys(itensAdicionados);
+
+        corpoTabela.innerHTML = '';
+
+        if (codigos.length === 0) {
+            corpoTabela.innerHTML = '<tr id="linhaVazia"><td colspan="4" style="text-align: center; color: #888; font-style: italic;">Nenhum item adicionado ainda.</td></tr>';
+            return;
+        }
+
+        codigos.forEach(codigo => {
+            const item = mapaEstoque[codigo];
+            if (!item) return;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><b>${item.codigo} - ${item.nome}</b><br><span style="font-size:11px;color:#888;">${item.apresentacao || ''}</span></td>
+                <td><span style="background: #f0edf5; padding: 3px 6px; border-radius: 4px; font-size: 11px; color: var(--roxo-principal); font-weight: 600;">${item.categoria || '—'}</span></td>
+                <td><input type="number" class="qtd-input" data-id="${codigo}" min="1" value="${itensAdicionados[codigo]}" required onchange="atualizarQuantidade('${codigo}', this.value)"></td>
+                <td><button type="button" class="btn-remover" title="Remover item" onclick="removerItem('${codigo}')">✕</button></td>
+            `;
+            corpoTabela.appendChild(tr);
+        });
+    }
+
+    function atualizarQuantidade(codigo, valor) {
+        const qtd = parseInt(valor, 10);
+        itensAdicionados[codigo] = qtd > 0 ? qtd : 1;
+    }
+
+    function removerItem(codigo) {
+        delete itensAdicionados[codigo];
+        renderizarTabelaItens();
+    }
+
+    function validarFormulario() {
+        const erros = [];
+        document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+
+        const camposObrigatorios = document.querySelectorAll('#formAlmoxarifado [required]');
+        camposObrigatorios.forEach(campo => {
+            if (!campo.value.trim()) {
+                const label = campo.getAttribute('data-label') || "Campo obrigatório";
+                erros.push(label);
+                campo.classList.add('input-error');
+            }
+        });
+
+        if (Object.keys(itensAdicionados).length === 0) {
+            erros.push("É necessário adicionar ao menos um item do almoxarifado");
+        }
+
+        return { valido: erros.length === 0, erros };
+    }
+
+    async function processarEnvioPedido() {
+        const validacao = validarFormulario();
+        if (!validacao.valido) {
+            mostrarErrosValidacao(validacao.erros);
+            return;
+        }
+        document.getElementById('validationAlert').style.display = 'none';
+
+        const setor = document.getElementById('setorSolicitante').value;
+        const responsavel = document.getElementById('responsavel').value;
+        const observacao = document.getElementById('observacao').value;
+
+        const itensPedido = Object.entries(itensAdicionados).map(([codigo, quantidade]) => {
+            const item = mapaEstoque[codigo];
+            return {
+                codigo,
+                nome: item ? item.nome : codigo,
+                categoria: item ? item.categoria : '',
+                quantidade
+            };
+        });
+
+        document.getElementById('modalStatus').classList.remove('hidden');
+        document.getElementById('spinnerBox').classList.remove('hidden');
+        document.getElementById('sucessoBox').classList.add('hidden');
+        document.getElementById('erroBox').classList.add('hidden');
+
+        const idUnico9Digitos = Math.floor(100000000 + Math.random() * 900000000).toString();
+        const agora = new Date();
+
+        const payload = {
+            action: 'registrarPedido',
+            idPedido: idUnico9Digitos,
+            dataHora: agora.toISOString(),
+            setor,
+            responsavel,
+            observacao,
+            itens: itensPedido,
+            itensTexto: itensPedido.map(i => `${i.codigo} (${i.nome}) x${i.quantidade}`).join('; ')
+        };
+
+        window.ultimoPedido = payload;
+
+        if (modoDemo) {
+            setTimeout(() => exibirSucessoModal(idUnico9Digitos), 800);
+            return;
+        }
+
+        try {
+            // Content-Type text/plain evita o preflight CORS que o Apps Script não
+            // responde bem; o Code.gs lê e.postData.contents como JSON normalmente.
+            const resposta = await fetch(URL_REGISTRAR_PEDIDO, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+            if (!resposta.ok) throw new Error('Resposta HTTP ' + resposta.status);
+            exibirSucessoModal(idUnico9Digitos);
+        } catch (erro) {
+            console.error(erro);
+            document.getElementById('spinnerBox').classList.add('hidden');
+            document.getElementById('erroBox').classList.remove('hidden');
+            document.getElementById('erroMensagem').textContent =
+                'Não foi possível gravar o pedido na planilha do Google Sheets (' + erro.message + '). Verifique a conexão e tente novamente — nenhum item foi descontado do estoque.';
+        }
+    }
+
+    function mostrarErrosValidacao(erros) {
+        const listContainer = document.getElementById('validationList');
+        listContainer.innerHTML = '';
+        erros.forEach(err => {
+            const li = document.createElement('li');
+            li.textContent = err;
+            listContainer.appendChild(li);
+        });
+        document.getElementById('validationAlert').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function exibirSucessoModal(codigo) {
+        document.getElementById('spinnerBox').classList.add('hidden');
+        document.getElementById('sucessoBox').classList.remove('hidden');
+        document.getElementById('codigoGerado').innerText = codigo;
+    }
+
+    function fecharModal() {
+        document.getElementById('modalStatus').classList.add('hidden');
+        document.getElementById('formAlmoxarifado').reset();
+        itensAdicionados = {};
+        renderizarTabelaItens();
+    }
+
+    function baixarComprovantePDF() {
+        const pedido = window.ultimoPedido;
+        if (!pedido || !window.jspdf) return;
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const roxo = [97, 53, 140];
+
+        doc.setFontSize(14);
+        doc.setTextColor(...roxo);
+        doc.text('Comprovante de Solicitação - Almoxarifado', 14, 18);
+
+        doc.setDrawColor(...roxo);
+        doc.line(14, 22, 196, 22);
+
+        doc.setFontSize(11);
+        doc.setTextColor(60, 60, 60);
+        let y = 32;
+        const linha = (label, valor) => { doc.setFont(undefined, 'bold'); doc.text(label, 14, y); doc.setFont(undefined, 'normal'); doc.text(String(valor || '-'), 55, y); y += 8; };
+
+        linha('ID do Pedido:', pedido.idPedido);
+        linha('Data/Hora:', new Date(pedido.dataHora).toLocaleString('pt-BR'));
+        linha('Setor:', pedido.setor);
+        linha('Responsável:', pedido.responsavel);
+        if (pedido.observacao) linha('Observação:', pedido.observacao);
+
+        y += 4;
+        doc.setFont(undefined, 'bold');
+        doc.text('Itens Solicitados', 14, y);
+        y += 6;
+        doc.setFont(undefined, 'normal');
+        pedido.itens.forEach(item => {
+            doc.text(`• ${item.codigo} - ${item.nome} — Qtd: ${item.quantidade}`, 16, y);
+            y += 7;
+        });
+
+        doc.setFontSize(9);
+        doc.setTextColor(140, 140, 140);
+        doc.text('Documento gerado automaticamente pelo sistema de solicitação de materiais.', 14, 285);
+
+        doc.save(`comprovante_pedido_${pedido.idPedido}.pdf`);
+    }
+</script>
+
+</body>
+</html>

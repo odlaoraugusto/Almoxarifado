@@ -1,0 +1,42 @@
+# Blueprint do Render — ambiente de teste online (plano free), mesmo
+# padrão já usado no projeto irmão (farmácia): sem custo, só para validar
+# remotamente enquanto o sistema ainda é protótipo. A arquitetura
+# definitiva de produção continua sendo servidor local (ver
+# docs/00_PROJETO_ALMOXARIFADO.md).
+#
+# DATABASE_URL fica em branco de propósito (sync: false) — o Render pede
+# esse valor na hora de aplicar o blueprint. Cole ali a connection string
+# do Neon (formato: postgresql://usuario:senha@ep-xxxx.neon.tech/dbname).
+#
+# JWT_SECRET_KEY é gerado automaticamente pelo Render (generateValue).
+#
+# HOSPITAL_NOME/HOSPITAL_ORGANIZACAO ficam em branco de propósito
+# (sync: false) — repositório é público, o nome real da instituição não
+# fica hardcoded aqui; preencher direto no painel do Render.
+#
+# CORS_ORIGINS: preencher com a URL real do frontend na Vercel depois do
+# primeiro deploy (ex.: "https://almoxarifado-xxxx.vercel.app").
+services:
+  - type: web
+    name: almoxarifado-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && alembic upgrade head
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "480"
+      - key: HOSPITAL_NOME
+        sync: false
+      - key: HOSPITAL_ORGANIZACAO
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
