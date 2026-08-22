@@ -30,8 +30,16 @@ class Movimentacao(Base):
     quantidade = Column(Integer, nullable=False)
 
     # Preenchido só quando tipo=saida — liga à liberação de um item de
-    # pedido específico (conferência). Nulo em entrada/ajuste.
+    # pedido específico (conferência). Nulo em entrada/ajuste, e nulo
+    # também quando a saída veio de um empréstimo (ver emprestimo_id
+    # abaixo) — os dois são mutuamente opcionais, nunca preenchidos ao
+    # mesmo tempo na prática.
     pedido_item_id = Column(Integer, ForeignKey("pedido_itens.id"), nullable=True)
+
+    # Preenchido só quando tipo=saida e a baixa veio de um empréstimo
+    # enviado (direcao=saida) — paralelo a pedido_item_id. Nulo em
+    # entrada/ajuste e nas saídas de pedido.
+    emprestimo_id = Column(Integer, ForeignKey("emprestimos.id"), nullable=True)
 
     # Obrigatório (validado no service) quando tipo=ajuste — motivo da
     # correção de saldo fora do fluxo normal (ex. divergência de
@@ -43,7 +51,10 @@ class Movimentacao(Base):
     data_hora = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # lazy="selectin": mesmo cuidado documentado em app/models/lote.py —
-    # `pedido_item_id` é opcional.
+    # `pedido_item_id`/`emprestimo_id` são opcionais.
     lote = relationship("Lote", lazy="selectin")
     pedido_item = relationship("PedidoItem", lazy="selectin")
+    emprestimo = relationship(
+        "RegistroEmprestimo", back_populates="movimentacoes", lazy="selectin"
+    )
     usuario = relationship("Usuario", foreign_keys=[usuario_id], lazy="selectin")

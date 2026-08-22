@@ -56,6 +56,14 @@ export function Layout() {
               <span className="ic">⛁</span>
               <span className="lbl">Estoque</span>
             </NavLink>
+            <NavLink to="/entrada-compra" className="nav-btn">
+              <span className="ic">⇢</span>
+              <span className="lbl">Entrada por Compra</span>
+            </NavLink>
+            <NavLink to="/emprestimos" className="nav-btn">
+              <span className="ic">⇄</span>
+              <span className="lbl">Empréstimos/Permutas</span>
+            </NavLink>
             {permissoes.gerenciarSetores && (
               <NavLink to="/setores" className="nav-btn">
                 <span className="ic">◫</span>

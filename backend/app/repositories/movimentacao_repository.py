@@ -38,3 +38,15 @@ class MovimentacaoRepository:
             )
 
         return query.order_by(Movimentacao.data_hora.desc()).all()
+
+    def listar_por_emprestimo(self, db: Session, emprestimo_id: int) -> list[Movimentacao]:
+        """Saídas geradas por um empréstimo enviado (direcao=saida) — pode
+        ter mais de uma linha por item pedido no `EmprestimoCreate` quando
+        o FEFO precisa atravessar mais de um lote. Usado por
+        `EmprestimoService` para montar o "detalhe" da resposta."""
+        return (
+            db.query(Movimentacao)
+            .filter(Movimentacao.emprestimo_id == emprestimo_id)
+            .order_by(Movimentacao.id)
+            .all()
+        )

@@ -9,6 +9,7 @@ from app.database.database import Base
 # Importa todos os models para que `Base.metadata` os conheça e o
 # autogenerate do Alembic consiga detectá-los.
 from app.models import (  # noqa: F401
+    emprestimo,
     item,
     lote,
     movimentacao,

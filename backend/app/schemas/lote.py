@@ -18,6 +18,9 @@ class EntradaCreate(BaseModel):
     valor_unitario: Decimal | None = None
     origem: OrigemEnum
     numero_nota_fiscal: str | None = None
+    # Número de autorização usado em compras (opcional) — mesmo conceito
+    # do projeto irmão da farmácia.
+    numero_afm: str | None = None
 
 
 class LoteOut(BaseModel):
@@ -29,6 +32,7 @@ class LoteOut(BaseModel):
     valor_unitario: Decimal | None
     origem: OrigemEnum
     numero_nota_fiscal: str | None
+    numero_afm: str | None
     data_entrada: datetime
     usuario_entrada_id: int
 

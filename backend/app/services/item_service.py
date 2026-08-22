@@ -100,6 +100,7 @@ class ItemService:
             valor_unitario=dados.valor_unitario,
             origem=dados.origem,
             numero_nota_fiscal=dados.numero_nota_fiscal,
+            numero_afm=dados.numero_afm,
             usuario_entrada_id=usuario.id,
         )
         db.add(lote)

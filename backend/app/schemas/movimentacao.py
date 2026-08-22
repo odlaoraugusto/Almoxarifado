@@ -24,6 +24,7 @@ class MovimentacaoOut(BaseModel):
     lote_id: int
     quantidade: int
     pedido_item_id: int | None
+    emprestimo_id: int | None
     motivo_ajuste: str | None
     usuario_id: int
     data_hora: datetime

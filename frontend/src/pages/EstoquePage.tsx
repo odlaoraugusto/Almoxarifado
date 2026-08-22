@@ -5,23 +5,17 @@ import { api, mensagemErro } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { diasAteVencer, formatarData, formatarMoeda, labelOrigemLote, nivelValidade } from '../lib/formato';
-import type { AjusteCriarPayload, EntradaCriarPayload, ItemCriarPayload, ItemOut, LoteOut, OrigemLote } from '../types';
+import type { AjusteCriarPayload, ItemCriarPayload, ItemOut, LoteOut } from '../types';
 
 const FORM_ITEM_VAZIO = { codigo: '', nome: '', apresentacao: '', categoria: '', estoque_minimo: '0' };
-const FORM_ENTRADA_VAZIO = {
-  numero_lote: '',
-  data_validade: '',
-  quantidade: '',
-  valor_unitario: '',
-  origem: 'compra' as OrigemLote,
-  numero_nota_fiscal: '',
-};
 
 /** Estoque do almoxarifado — catálogo de itens com saldo agregado (Σ
- * lotes), alerta de estoque crítico e vencimento em 3 níveis (mesma
- * régua da farmácia). Registrar entrada de lote é liberado a qualquer
- * perfil autenticado; cadastro/edição de item e Ajuste de estoque são
- * exclusivos do Coordenador (matriz da seção 3.3 do doc). */
+ * lotes), alerta de estoque crítico e vencimento em 4 grupos (vencido,
+ * ≤30d, 30–60d, ok — mesma régua da farmácia). Registrar entrada de
+ * lote não acontece mais avulso por item aqui — só pelas telas
+ * "Entrada por Compra" e "Empréstimos/Permutas". Cadastro/edição de
+ * item e Ajuste de estoque continuam exclusivos do Coordenador (matriz
+ * da seção 3.3 do doc). */
 export function EstoquePage() {
   const { usuario, token } = useAuth();
   const permissoes = permissoesDe(usuario);
@@ -74,6 +68,32 @@ export function EstoquePage() {
       }),
     [lotes],
   );
+
+  // ---- vencimento em 4 grupos (dashboard) ----
+  const contagemVencimento = useMemo(() => {
+    let vencidos = 0;
+    let ate30 = 0;
+    let entre30e60 = 0;
+    let semUrgencia = 0;
+    for (const l of lotes) {
+      if (!l.data_validade) continue;
+      switch (nivelValidade(diasAteVencer(l.data_validade))) {
+        case 'vencido':
+          vencidos++;
+          break;
+        case 'amarelo':
+          ate30++;
+          break;
+        case 'roxo':
+          entre30e60++;
+          break;
+        case 'ok':
+          semUrgencia++;
+          break;
+      }
+    }
+    return { vencidos, ate30, entre30e60, semUrgencia };
+  }, [lotes]);
 
   // ---- cadastro/edição de item (coordenador) ----
   const [editandoItemId, setEditandoItemId] = useState<number | null>(null);
@@ -133,44 +153,6 @@ export function EstoquePage() {
       carregar();
     } catch (err) {
       setErro(mensagemErro(err, 'Não foi possível alterar o status do item.'));
-    }
-  }
-
-  // ---- registrar entrada de lote (qualquer autenticado) ----
-  const [itemEntradaId, setItemEntradaId] = useState<number | null>(null);
-  const [formEntrada, setFormEntrada] = useState(FORM_ENTRADA_VAZIO);
-  const [salvandoEntrada, setSalvandoEntrada] = useState(false);
-
-  function abrirEntrada(item: ItemOut) {
-    setItemEntradaId(item.id);
-    setFormEntrada(FORM_ENTRADA_VAZIO);
-    setErro(null);
-    setSucesso(null);
-  }
-
-  async function aoSubmeterEntrada(e: FormEvent) {
-    e.preventDefault();
-    if (itemEntradaId == null) return;
-    setErro(null);
-    setSucesso(null);
-    setSalvandoEntrada(true);
-    const payload: EntradaCriarPayload = {
-      numero_lote: formEntrada.numero_lote.trim() || undefined,
-      data_validade: formEntrada.data_validade || undefined,
-      quantidade: Number(formEntrada.quantidade),
-      valor_unitario: formEntrada.valor_unitario.trim() || undefined,
-      origem: formEntrada.origem,
-      numero_nota_fiscal: formEntrada.numero_nota_fiscal.trim() || undefined,
-    };
-    try {
-      await api.post(`/itens/${itemEntradaId}/entrada`, payload, { token });
-      setSucesso('Entrada registrada.');
-      setItemEntradaId(null);
-      carregar();
-    } catch (err) {
-      setErro(mensagemErro(err, 'Não foi possível registrar a entrada.'));
-    } finally {
-      setSalvandoEntrada(false);
     }
   }
 
@@ -243,6 +225,31 @@ export function EstoquePage() {
         <div className="tile">
           <div className="k">Itens ativos no catálogo</div>
           <div className="v">{carregando ? '—' : itens.filter((i) => i.ativo).length}</div>
+        </div>
+      </div>
+
+      <div className="tiles">
+        <div className="tile">
+          <div className="k">Vencidos</div>
+          <div className={`v ${contagemVencimento.vencidos > 0 ? 'warn' : ''}`}>
+            {carregando ? '—' : contagemVencimento.vencidos}
+          </div>
+        </div>
+        <div className="tile">
+          <div className="k">Vence em até 30 dias</div>
+          <div className={`v ${contagemVencimento.ate30 > 0 ? 'warn' : ''}`}>
+            {carregando ? '—' : contagemVencimento.ate30}
+          </div>
+        </div>
+        <div className="tile">
+          <div className="k">Vence em 30–60 dias</div>
+          <div className={`v ${contagemVencimento.entre30e60 > 0 ? 'warn' : ''}`}>
+            {carregando ? '—' : contagemVencimento.entre30e60}
+          </div>
+        </div>
+        <div className="tile">
+          <div className="k">Sem urgência (60+ dias)</div>
+          <div className="v">{carregando ? '—' : contagemVencimento.semUrgencia}</div>
         </div>
       </div>
 
@@ -334,91 +341,6 @@ export function EstoquePage() {
                 Cancelar edição
               </button>
             )}
-          </div>
-        </form>
-      )}
-
-      {itemEntradaId != null && (
-        <form className="panel" onSubmit={aoSubmeterEntrada}>
-          <h2>Registrar entrada — {itens.find((i) => i.id === itemEntradaId)?.nome}</h2>
-          <div className="grid g3">
-            <div className="field">
-              <label htmlFor="ent-lote">
-                Nº do lote <span className="tag">opcional</span>
-              </label>
-              <input
-                id="ent-lote"
-                type="text"
-                value={formEntrada.numero_lote}
-                onChange={(e) => setFormEntrada((f) => ({ ...f, numero_lote: e.target.value }))}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="ent-validade">
-                Validade <span className="tag">opcional</span>
-              </label>
-              <input
-                id="ent-validade"
-                type="date"
-                value={formEntrada.data_validade}
-                onChange={(e) => setFormEntrada((f) => ({ ...f, data_validade: e.target.value }))}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="ent-qtd">
-                Quantidade <span className="req">*</span>
-              </label>
-              <input
-                id="ent-qtd"
-                type="number"
-                min={1}
-                value={formEntrada.quantidade}
-                onChange={(e) => setFormEntrada((f) => ({ ...f, quantidade: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="ent-valor">
-                Valor unitário <span className="tag">opcional</span>
-              </label>
-              <input
-                id="ent-valor"
-                type="text"
-                placeholder="0,00"
-                value={formEntrada.valor_unitario}
-                onChange={(e) => setFormEntrada((f) => ({ ...f, valor_unitario: e.target.value }))}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="ent-origem">Origem</label>
-              <select
-                id="ent-origem"
-                value={formEntrada.origem}
-                onChange={(e) => setFormEntrada((f) => ({ ...f, origem: e.target.value as OrigemLote }))}
-              >
-                <option value="compra">Compra</option>
-                <option value="doacao">Doação</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="ent-nf">
-                Nº nota fiscal <span className="tag">opcional</span>
-              </label>
-              <input
-                id="ent-nf"
-                type="text"
-                value={formEntrada.numero_nota_fiscal}
-                onChange={(e) => setFormEntrada((f) => ({ ...f, numero_nota_fiscal: e.target.value }))}
-              />
-            </div>
-          </div>
-          <div className="actions">
-            <button type="submit" className="btn" disabled={salvandoEntrada}>
-              {salvandoEntrada ? 'Registrando…' : 'Registrar entrada'}
-            </button>
-            <button type="button" className="btn ghost" onClick={() => setItemEntradaId(null)}>
-              Cancelar
-            </button>
           </div>
         </form>
       )}
@@ -524,9 +446,6 @@ export function EstoquePage() {
                       <td className="num">{item.estoque_minimo}</td>
                       <td>{critico && <span className="pill danger">crítico</span>}</td>
                       <td style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button type="button" className="btn ghost sm" onClick={() => abrirEntrada(item)}>
-                          Entrada
-                        </button>
                         {permissoes.gerenciarItens && (
                           <>
                             <button type="button" className="btn ghost sm" onClick={() => iniciarEdicaoItem(item)}>
@@ -593,7 +512,7 @@ export function EstoquePage() {
                         {nivel === 'vencido' && <span className="pill danger">venceu há {Math.abs(dias ?? 0)}d</span>}
                         {nivel === 'amarelo' && <span className="pill pend">vence em {dias}d</span>}
                         {nivel === 'roxo' && <span className="pill roxo">vence em {dias}d</span>}
-                        {nivel === 'ok' && <span className="pill muted">ok</span>}
+                        {nivel === 'ok' && <span className="pill ok">ok</span>}
                         {nivel === null && <span className="pill muted">não vence</span>}
                       </td>
                       {permissoes.ajustarEstoque && (

@@ -4,6 +4,7 @@ from sqlalchemy import text
 
 from app.api.routes.ajustes import router as ajustes_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.emprestimos import router as emprestimos_router
 from app.api.routes.itens import router as itens_router
 from app.api.routes.lotes import router as lotes_router
 from app.api.routes.pedidos import router as pedidos_router
@@ -42,6 +43,7 @@ app.include_router(setores_router)
 app.include_router(itens_router)
 app.include_router(lotes_router)
 app.include_router(pedidos_router)
+app.include_router(emprestimos_router)
 app.include_router(ajustes_router)
 app.include_router(relatorios_router)
 

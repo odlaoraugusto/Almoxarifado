@@ -34,6 +34,13 @@ class Lote(Base):
         nullable=False,
     )
     numero_nota_fiscal = Column(String(50), nullable=True)
+    # Número de autorização usado em compras (mesmo conceito do projeto
+    # irmão da farmácia) — opcional, não confundir com numero_nota_fiscal.
+    numero_afm = Column(String(50), nullable=True)
+
+    # Preenchido só quando o lote nasceu de uma entrada via
+    # empréstimo/permuta (origem='emprestimo') — nulo para compra/doação.
+    emprestimo_id = Column(Integer, ForeignKey("emprestimos.id"), nullable=True)
 
     data_entrada = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     usuario_entrada_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
@@ -42,11 +49,14 @@ class Lote(Base):
     # `get_by_id_for_update()` usa `SELECT ... FOR UPDATE`, que o Postgres
     # recusa quando a query tem LEFT OUTER JOIN em FK opcional — mesmo
     # cuidado documentado no projeto irmão (app/models/lote.py da
-    # farmácia), reaplicado aqui porque `usuario_entrada_id`/`item_id`
-    # participariam de um JOIN se o lazy padrão fosse usado num
-    # relacionamento eager.
+    # farmácia), reaplicado aqui porque `usuario_entrada_id`/`item_id`/
+    # `emprestimo_id` participariam de um JOIN se o lazy padrão fosse
+    # usado num relacionamento eager.
     item = relationship("Item", lazy="selectin")
     usuario_entrada = relationship("Usuario", foreign_keys=[usuario_entrada_id], lazy="selectin")
+    emprestimo = relationship(
+        "RegistroEmprestimo", back_populates="lotes_criados", lazy="selectin"
+    )
 
     __table_args__ = (
         CheckConstraint("quantidade_atual >= 0", name="ck_lotes_quantidade_nao_negativa"),

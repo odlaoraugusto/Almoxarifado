@@ -79,12 +79,16 @@ export interface LoteOut {
   valor_unitario: string | null;
   origem: OrigemLote;
   numero_nota_fiscal: string | null;
+  numero_afm: string | null;
   data_entrada: string;
   usuario_entrada_id: number;
 }
 
 /** Corpo do `POST /itens/{item_id}/entrada` — item_id vai na URL, não no
- * payload. */
+ * payload. Usado pela tela "Entrada por Compra" (uma chamada por
+ * item/linha adicionada, repetindo o cabeçalho nota fiscal/AFM em cada
+ * uma). `numero_afm` é opcional no schema do backend — a tela de Entrada
+ * por Compra que o torna obrigatório na UI quando fizer sentido. */
 export interface EntradaCriarPayload {
   numero_lote?: string;
   data_validade?: string;
@@ -92,6 +96,56 @@ export interface EntradaCriarPayload {
   valor_unitario?: string;
   origem: OrigemLote;
   numero_nota_fiscal?: string;
+  numero_afm?: string;
+}
+
+/** Direção de um registro de empréstimo/permuta com unidade externa
+ * (fora do nosso catálogo de setores). "saida" consome estoque nosso;
+ * "entrada" (devolução ou permuta) cria lote(s) novo(s), igual à Entrada
+ * por Compra. */
+export type DirecaoEmprestimo = 'entrada' | 'saida';
+
+export interface EmprestimoItemPayload {
+  item_id: number;
+  quantidade: number;
+  numero_lote?: string;
+  data_validade?: string;
+  valor_unitario?: string;
+}
+
+/** Corpo do `POST /emprestimos` — diferente da Entrada por Compra, aceita
+ * a lista inteira de itens numa única chamada. Rota ainda não existe no
+ * backend no momento em que este contrato foi escrito (construída em
+ * paralelo pelo agente almox-backend-2) — nomes de campo seguem o
+ * contrato combinado; ajustar aqui se o backend expuser algo diferente. */
+export interface EmprestimoCriarPayload {
+  direcao: DirecaoEmprestimo;
+  unidade_origem: string;
+  numero_oficio?: string;
+  itens: EmprestimoItemPayload[];
+}
+
+/** Um lote criado (direcao=entrada) ou uma linha de saída gerada
+ * (direcao=saida) por este empréstimo — `lote_id`/`movimentacao_id` são
+ * mutuamente exclusivos conforme a direção do registro pai. Se o FEFO
+ * precisar puxar de mais de um lote pra cobrir a quantidade de um item
+ * numa saída, aquele item vira mais de uma linha aqui (sem
+ * correspondência 1:1 com o array de itens enviado no POST). */
+export interface EmprestimoItemOut {
+  item: ItemPublico;
+  quantidade: number;
+  lote_id: number | null;
+  movimentacao_id: number | null;
+}
+
+export interface EmprestimoOut {
+  id: number;
+  direcao: DirecaoEmprestimo;
+  unidade_origem: string;
+  numero_oficio: string | null;
+  usuario_id: number;
+  data_hora: string;
+  itens: EmprestimoItemOut[];
 }
 
 export interface PedidoItemPayload {

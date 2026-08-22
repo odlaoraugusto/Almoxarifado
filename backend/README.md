@@ -180,6 +180,74 @@ validação foi feita sem um `alembic upgrade head` real contra o banco:
   fechar essa janela por não ser o padrão já estabelecido no projeto irmão —
   mas é um ponto real a revisar com o time se isso disparar em produção.
 
+## Rodada — `numero_afm` em Lote + módulo de Empréstimos e Permutas
+
+- **`lotes.numero_afm`**: campo opcional novo, ao lado de
+  `numero_nota_fiscal` — número de autorização usado em compras (mesmo
+  conceito do projeto irmão da farmácia). Passa por `EntradaCreate` e
+  aparece em `LoteOut`; não muda em nada o fluxo de
+  `POST /itens/{item_id}/entrada`, que continua existindo exatamente
+  como antes (a tela "Entrada por Compra" do frontend chama esse mesmo
+  endpoint uma vez por item, não um endpoint de lote em lote).
+- **Empréstimo/permuta com unidade EXTERNA** (`RegistroEmprestimo`,
+  tabela `emprestimos`) — não é o mesmo conceito de `Pedido`/`Setor`
+  (que são sempre departamentos internos pedindo material pelo
+  formulário público). `unidade_origem` é texto livre (nome da
+  instituição/unidade de fora), não FK.
+  - `direcao=saida`: dá baixa real de estoque via FEFO — reaproveita a
+    MESMA lógica de lock+decremento que `PedidoService` usava
+    internamente, agora extraída para `app/services/consumo_fefo.py`
+    (função `consumir_fefo(db, lote_repository, movimentacao_repository,
+    usuario_id, item_id, quantidade_necessaria, *, pedido_item_id=None,
+    emprestimo_id=None)`). `PedidoService.conferir_item` foi refatorado
+    para chamar essa função compartilhada — comportamento e mensagens de
+    erro idênticos aos de antes da refatoração.
+  - `direcao=entrada`: cria lote(s) novo(s) por item
+    (`Lote.origem='emprestimo'`, `Lote.emprestimo_id` preenchido), igual
+    à Entrada por compra/doação.
+  - `Movimentacao.emprestimo_id` (FK opcional) só é preenchido nas
+    SAÍDAS geradas por um empréstimo enviado — paralelo a
+    `pedido_item_id`, mutuamente exclusivos na prática, sem constraint
+    de banco pra isso (mesmo padrão do par `pedido_item_id`).
+- **Rotas**: `POST /emprestimos` e `GET /emprestimos`, Bearer, qualquer
+  perfil autenticado (mesmo nível de permissão de quem já registra
+  Entrada de estoque).
+- **Formato do "detalhe" em `EmprestimoOut.itens`** (decisão de
+  formato, não estava 100% especificada): uma lista de
+  `{item, quantidade, lote_id | movimentacao_id}` — um item por LOTE
+  criado (direção entrada) ou por linha de `Movimentacao` de saída
+  gerada (direção saída). Importante: numa saída, um único item pedido
+  em `EmprestimoCreate.itens` pode gerar MAIS DE UMA linha no detalhe se
+  o FEFO precisar atravessar mais de um lote para cobrir a quantidade —
+  o array de resposta não tem correspondência 1:1 com o array de
+  entrada nesse caso.
+- **`quantidade` do detalhe de entrada em `GET /emprestimos` (listagem
+  histórica)**: usa `Lote.quantidade_atual` no momento da consulta, não
+  um valor congelado de "quantidade originalmente recebida" — mesma
+  convenção que o resto da API já usa (`LoteOut` também só expõe o
+  saldo atual, sem guardar a quantidade de entrada original em nenhum
+  lugar). Ou seja, se aquele lote específico já foi parcialmente
+  consumido depois (por uma conferência de pedido ou por outro
+  empréstimo de saída), o número mostrado no histórico reflete o saldo
+  atual do lote, não o que entrou naquele dia. Na resposta de
+  `POST /emprestimos` (`criar`) o valor é sempre exato, por ser lido
+  logo após a criação do lote.
+- **CHECK CONSTRAINT de `lotes.origem`**: a coluna usa
+  `sa.Enum(..., native_enum=False)` desde `0001_schema_inicial`, mas —
+  mesma limitação real do Alembic já documentada em
+  `0002_status_pedido_parcial` (Enum inline dentro de
+  `op.create_table` não gera a CHECK de verdade contra um Postgres
+  real, só no `--sql` offline) — muito provavelmente nunca teve uma
+  CHECK CONSTRAINT de fato em produção. Não deu pra confirmar com `\d
+  lotes` nesta rodada (sem acesso à VPS); a migration `0003` documenta
+  essa suposição e cria a constraint (não substitui uma que não se sabe
+  se existe), já com os 3 valores (`compra`, `doacao`, `emprestimo`).
+  Se a mesma limitação também afeta `usuarios.perfil` e
+  `movimentacoes.tipo` (colunas com Enum inline em `create_table` na
+  mesma migration 0001), não foi investigado nem corrigido nesta rodada
+  — fora do escopo pedido; vale uma checagem futura com `\d usuarios`/
+  `\d movimentacoes` direto no Postgres da VPS.
+
 ## O que ficou fora desta rodada
 
 - **Frontend** — não faz parte deste pacote (`../frontend`, em construção

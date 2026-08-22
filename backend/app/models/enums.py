@@ -12,6 +12,18 @@ class PerfilEnum(str, enum.Enum):
 class OrigemEnum(str, enum.Enum):
     compra = "compra"
     doacao = "doacao"
+    emprestimo = "emprestimo"
+
+
+class DirecaoEmprestimoEnum(str, enum.Enum):
+    """`saida`: a gente empresta material pra uma unidade externa — baixa
+    real de estoque via FEFO (`app.services.consumo_fefo`). `entrada`: a
+    gente recebe de volta (devolução) ou recebe em permuta — cria
+    lote(s) novo(s), `origem='emprestimo'`, igual à Entrada por compra/
+    doação."""
+
+    entrada = "entrada"
+    saida = "saida"
 
 
 class StatusPedidoEnum(str, enum.Enum):

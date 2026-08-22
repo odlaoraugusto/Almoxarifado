@@ -3,8 +3,7 @@ from datetime import date, datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.enums import StatusPedidoEnum, TipoMovimentacaoEnum
-from app.models.movimentacao import Movimentacao
+from app.models.enums import StatusPedidoEnum
 from app.models.pedido import Pedido
 from app.models.pedido_item import PedidoItem
 from app.repositories.item_repository import ItemRepository
@@ -15,6 +14,7 @@ from app.repositories.pedido_repository import PedidoRepository
 from app.repositories.setor_repository import SetorRepository
 from app.schemas.pedido import PedidoCreate, PedidoItemConferirCreate
 from app.schemas.usuario import UsuarioMe
+from app.services.consumo_fefo import consumir_fefo
 
 
 class PedidoService:
@@ -88,70 +88,6 @@ class PedidoService:
 
         return pedido
 
-    def _consumir_fefo(
-        self,
-        db: Session,
-        usuario: UsuarioMe,
-        item_id: int,
-        quantidade_necessaria: int,
-        pedido_item_id: int,
-    ) -> None:
-        """Consome `quantidade_necessaria` unidades do item, priorizando o
-        lote que vence primeiro (FEFO — First Expire, First Out, mesma
-        lógica da farmácia), podendo atravessar mais de um lote. Cada
-        lote tocado é travado com `SELECT ... FOR UPDATE` antes de
-        decrementar, para não colidir com outra conferência/ajuste
-        simultâneo no mesmo lote."""
-        lotes_disponiveis = self.lote_repository.listar_fefo(db, item_id)
-        total_disponivel = sum(lote.quantidade_atual for lote in lotes_disponiveis)
-
-        if total_disponivel < quantidade_necessaria:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"Estoque insuficiente para o item id={item_id}: disponível "
-                    f"{total_disponivel}, necessário {quantidade_necessaria}."
-                ),
-            )
-
-        restante = quantidade_necessaria
-        for lote_candidato in lotes_disponiveis:
-            if restante <= 0:
-                break
-
-            # Trava a linha antes de decrementar — a listagem acima já
-            # não tem lock, então relê o saldo travado antes de usar.
-            lote = self.lote_repository.get_by_id_for_update(db, lote_candidato.id)
-            if lote is None or lote.quantidade_atual <= 0:
-                continue
-
-            consumido = min(restante, lote.quantidade_atual)
-            lote.quantidade_atual -= consumido
-            self.lote_repository.salvar(db, lote)
-
-            movimentacao = Movimentacao(
-                tipo=TipoMovimentacaoEnum.saida,
-                lote_id=lote.id,
-                quantidade=consumido,
-                pedido_item_id=pedido_item_id,
-                usuario_id=usuario.id,
-            )
-            self.movimentacao_repository.create(db, movimentacao)
-
-            restante -= consumido
-
-        if restante > 0:
-            # Condição de corrida rara: outro atendente consumiu saldo
-            # entre a listagem e o lock. Falha limpa em vez de deixar o
-            # pedido_item marcado como conferido sem baixa completa.
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    f"Estoque do item id={item_id} mudou durante a conferência. "
-                    "Tente novamente."
-                ),
-            )
-
     def conferir_item(
         self,
         db: Session,
@@ -189,7 +125,15 @@ class PedidoService:
         # quantidade_entregue=0 registra "não atendido" (item indisponível)
         # sem tocar em estoque.
         if dados.quantidade_entregue > 0:
-            self._consumir_fefo(db, usuario, item.id, dados.quantidade_entregue, pedido_item.id)
+            consumir_fefo(
+                db,
+                self.lote_repository,
+                self.movimentacao_repository,
+                usuario.id,
+                item.id,
+                dados.quantidade_entregue,
+                pedido_item_id=pedido_item.id,
+            )
 
         pedido_item.item_id_entregue = item.id
         pedido_item.quantidade_entregue = dados.quantidade_entregue
