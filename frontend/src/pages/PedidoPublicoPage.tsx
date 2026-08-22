@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import { api, mensagemErro } from '../lib/api';
 import { HOSPITAL_SIGLA } from '../lib/instituicao';
@@ -247,9 +246,6 @@ export function PedidoPublicoPage() {
       {erroEnvio && <div className="conexao-alert">⚠️ {erroEnvio}</div>}
 
       <div className="container">
-        <div className="link-topo-login">
-          <Link to="/login">Sou da equipe do almoxarifado →</Link>
-        </div>
         <header>
           <h1>Solicitação de Materiais — Almoxarifado</h1>
           <div className="subtitle">{HOSPITAL_SIGLA}</div>
@@ -402,10 +398,6 @@ export function PedidoPublicoPage() {
             {enviando ? 'Enviando…' : 'Confirmar Pedido de Material'}
           </button>
         </form>
-
-        <div className="rodape-login">
-          Equipe do almoxarifado — <Link to="/login">acesse o painel aqui</Link>.
-        </div>
       </div>
 
       {(enviando || resultado) && (

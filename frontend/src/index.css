@@ -1275,33 +1275,6 @@ tbody tr.selecionada {
 .pedido-publico .btn-acao:hover { background-color: #5bbd90; }
 .pedido-publico .btn-acao:disabled { background-color: var(--line); cursor: not-allowed; }
 
-.pedido-publico .link-topo-login {
-  width: 100%;
-  text-align: right;
-  margin-bottom: -6px;
-}
-.pedido-publico .link-topo-login a {
-  font-size: 11.5px;
-  font-weight: 650;
-  color: var(--fesf-purple);
-  text-decoration: none;
-  border: 1px solid var(--fesf-lavender);
-  border-radius: 999px;
-  padding: 5px 12px;
-  display: inline-block;
-}
-.pedido-publico .link-topo-login a:hover {
-  background: var(--accent-soft);
-}
-
-.pedido-publico .rodape-login {
-  text-align: center;
-  margin-top: 18px;
-  font-size: 11.5px;
-  color: var(--fesf-gray);
-}
-.pedido-publico .rodape-login a { color: var(--fesf-purple); font-weight: 650; text-decoration: underline; }
-
 .pp-modal-overlay { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 9999; padding: 16px; }
 .pp-modal-content { background-color: var(--surface); border-radius: 8px; width: 100%; max-width: 450px; padding: 20px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); border: 2px solid var(--fesf-purple); }
 .pp-modal-header { color: var(--fesf-purple); font-size: 16px; font-weight: 700; margin-bottom: 10px; text-transform: uppercase; border-bottom: 2px solid var(--fesf-aqua); padding-bottom: 6px; text-align: center; }
