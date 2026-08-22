@@ -1,0 +1,35 @@
+# Deploy do backend nesta VPS específica — reaproveita o Postgres e o
+# Traefik já rodando (mesmo padrão do stack do n8n em /opt/stacks/n8n):
+# o container do Postgres NUNCA é exposto à internet, só entra na rede
+# "backend" interna do Docker; só o backend do almoxarifado é publicado,
+# via Traefik com HTTPS automático (Let's Encrypt) na rede "proxy".
+#
+# Uso (na VPS, dentro do checkout deste repo):
+#   cp .env.vps.example .env   # preencher com os valores reais
+#   docker compose -f docker-compose.vps.yml up -d --build
+#
+# Depois do primeiro up, rodar os seeds uma vez:
+#   docker compose -f docker-compose.vps.yml exec almoxarifado-backend python scripts/seed_usuarios.py
+#   docker compose -f docker-compose.vps.yml exec almoxarifado-backend python scripts/seed_setores.py
+services:
+  almoxarifado-backend:
+    build: ./backend
+    container_name: almoxarifado-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - proxy
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.almoxarifado-backend.rule=Host(`almoxarifado-api.169-58-217-209.sslip.io`)"
+      - "traefik.http.routers.almoxarifado-backend.entrypoints=websecure"
+      - "traefik.http.routers.almoxarifado-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.almoxarifado-backend.loadbalancer.server.port=8000"
+
+networks:
+  proxy:
+    external: true
+  backend:
+    external: true

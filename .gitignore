@@ -1,0 +1,3 @@
+# Segredos do deploy nesta VPS (docker-compose.vps.yml usa ./.env via env_file).
+/.env
+!.env.vps.example
