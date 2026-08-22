@@ -247,6 +247,9 @@ export function PedidoPublicoPage() {
       {erroEnvio && <div className="conexao-alert">⚠️ {erroEnvio}</div>}
 
       <div className="container">
+        <div className="link-topo-login">
+          <Link to="/login">Sou da equipe do almoxarifado →</Link>
+        </div>
         <header>
           <h1>Solicitação de Materiais — Almoxarifado</h1>
           <div className="subtitle">{HOSPITAL_SIGLA}</div>
