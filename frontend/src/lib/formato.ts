@@ -53,6 +53,7 @@ export function labelPerfil(perfil: string): string {
 
 const STATUS_PEDIDO_LABEL: Record<string, string> = {
   pendente: 'Pendente',
+  parcial: 'Parcial',
   executado: 'Executado',
 };
 export function labelStatusPedido(status: string): string {
@@ -60,6 +61,7 @@ export function labelStatusPedido(status: string): string {
 }
 export function pillStatusPedido(status: string): string {
   if (status === 'pendente') return 'pill pend';
+  if (status === 'parcial') return 'pill roxo';
   if (status === 'executado') return 'pill ok';
   return 'pill muted';
 }

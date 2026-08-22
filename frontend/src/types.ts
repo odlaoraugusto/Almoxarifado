@@ -11,7 +11,7 @@
 
 export type Perfil = 'coordenador' | 'atendente';
 
-export type StatusPedido = 'pendente' | 'executado';
+export type StatusPedido = 'pendente' | 'parcial' | 'executado';
 
 export type OrigemLote = 'compra' | 'doacao';
 
@@ -133,12 +133,10 @@ export interface PedidoOut {
   itens: PedidoItemOut[];
 }
 
-/** Corpo do PATCH de conferência de UM item do pedido (rota assumida,
- * ver nota no topo do arquivo). */
+/** Corpo do PATCH de conferência de UM item do pedido — o item entregue
+ * é sempre o solicitado (sem troca de item nesta tela). */
 export interface ConferirItemPayload {
-  item_id_entregue?: number;
   quantidade_entregue: number;
-  motivo_substituicao?: string;
 }
 
 /** O backend calcula o delta a partir de `quantidade_nova` contra o

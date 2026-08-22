@@ -24,15 +24,13 @@ class PedidoCreate(BaseModel):
 
 
 class PedidoItemConferirCreate(BaseModel):
-    """Conferência de UM item do pedido. `item_id_entregue` omitido =
-    entrega o próprio item solicitado; informado e diferente do
-    solicitado = substituição (exige `motivo_substituicao`).
-    `quantidade_entregue=0` registra "não atendido" sem dar baixa em
-    estoque."""
+    """Conferência de UM item do pedido — o item entregue é sempre o
+    solicitado (sem troca de item nesta tela; o quadro já identifica o
+    material pedido). `quantidade_entregue=0` registra "não atendido"
+    sem dar baixa em estoque; menor que `quantidade_solicitada` deixa o
+    pedido como "parcial"; não pode ser maior que a solicitada."""
 
-    item_id_entregue: int | None = None
     quantidade_entregue: int = Field(ge=0)
-    motivo_substituicao: str | None = None
 
 
 class PedidoItemOut(BaseModel):

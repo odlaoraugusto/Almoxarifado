@@ -3,12 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { api, baixarArquivo, mensagemErro } from '../lib/api';
 import { Alerta } from '../components/Alerta';
 import { formatarDataHora, labelStatusPedido, pillStatusPedido } from '../lib/formato';
-import type { ConferirItemPayload, ItemOut, PedidoOut, Setor, StatusPedido } from '../types';
+import type { ConferirItemPayload, PedidoOut, Setor, StatusPedido } from '../types';
 
 interface EdicaoItem {
-  itemEntregueId: number;
   quantidade: string;
-  motivo: string;
+  liberar: boolean;
 }
 
 type AbaStatus = 'todos' | StatusPedido;
@@ -32,16 +31,25 @@ function itensResumoTexto(pedido: PedidoOut): string {
     .join('; ');
 }
 
-function pedidoTeveSubstituicao(pedido: PedidoOut): boolean {
-  return pedido.itens.some((it) => it.item_id_entregue != null && it.item_id_entregue !== it.item_id_solicitado);
-}
-
 /** Painel do almoxarifado — fila de pedidos do formulário público, com
  * cards de resumo, abas de status, filtros, seleção em lote e
  * conferência item a item num modal. Layout inspirado no protótipo do
  * painel em planilha/Apps Script que o time já usava, adaptado à nossa
  * API (login/senha em vez de PIN, conferência real com baixa de estoque
  * via FEFO em vez de simulação client-side).
+ *
+ * Conferência: o item entregue é sempre o item solicitado (o quadro já
+ * identifica o material — sem seletor de troca de item aqui; uma
+ * eventual substituição é assunto do Ajuste de Estoque, não desta
+ * tela). Cada item tem quantidade solicitada (fixa) e quantidade
+ * dispensada (editável, até o limite do solicitado), com um checkbox
+ * pra escolher quais itens estão sendo liberados nesta passada — dá pra
+ * conferir só parte do pedido agora e voltar depois pro resto.
+ *
+ * Status do pedido: "pendente" (nada conferido), "parcial" (algum item
+ * conferido, mas nem todos, OU todos conferidos com quantidade menor
+ * que a solicitada) e "executado" (tudo conferido na quantidade cheia)
+ * — calculado pelo backend a cada conferência.
  *
  * "Marcar Executado (sem conferência)" reaproveita
  * `POST /pedidos/{id}/executar-direto` — ainda dá baixa real de estoque
@@ -53,7 +61,6 @@ export function PainelPage() {
   const { token } = useAuth();
 
   const [setores, setSetores] = useState<Setor[]>([]);
-  const [catalogo, setCatalogo] = useState<ItemOut[]>([]);
   const [pedidos, setPedidos] = useState<PedidoOut[]>([]);
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [erroLista, setErroLista] = useState<string | null>(null);
@@ -71,7 +78,6 @@ export function PainelPage() {
   useEffect(() => {
     if (!token) return;
     api.get<Setor[]>('/setores', { token }).then(setSetores).catch(() => {});
-    api.get<ItemOut[]>('/itens', { token }).then(setCatalogo).catch(() => {});
   }, [token]);
 
   const carregarLista = useCallback(() => {
@@ -95,9 +101,11 @@ export function PainelPage() {
   const resumo = useMemo(() => {
     const total = pedidos.length;
     const pendentes = pedidos.filter((p) => p.status === 'pendente').length;
+    const parciais = pedidos.filter((p) => p.status === 'parcial').length;
+    const executados = pedidos.filter((p) => p.status === 'executado').length;
     const hoje = new Date().toDateString();
     const recebidosHoje = pedidos.filter((p) => new Date(p.data_hora).toDateString() === hoje).length;
-    return { total, pendentes, executados: total - pendentes, recebidosHoje };
+    return { total, pendentes, parciais, executados, recebidosHoje };
   }, [pedidos]);
 
   const listaFiltrada = useMemo(() => {
@@ -116,8 +124,11 @@ export function PainelPage() {
     });
   }, [pedidos, aba, setorFiltro, dataFiltro, busca]);
 
-  // ---- seleção em lote (só pedidos pendentes podem ser selecionados) ----
-  const selecionaveisVisiveis = useMemo(() => listaFiltrada.filter((p) => p.status === 'pendente').map((p) => p.id), [listaFiltrada]);
+  // ---- seleção em lote (só pedidos ainda não totalmente conferidos) ----
+  const selecionaveisVisiveis = useMemo(
+    () => listaFiltrada.filter((p) => p.status !== 'executado').map((p) => p.id),
+    [listaFiltrada],
+  );
   const todosMarcados = selecionaveisVisiveis.length > 0 && selecionaveisVisiveis.every((id) => selecionados.has(id));
 
   function alternarSelecao(id: number, marcado: boolean) {
@@ -142,7 +153,11 @@ export function PainelPage() {
 
   async function executarSelecionadosSemConferencia() {
     if (selecionados.size === 0) return;
-    if (!confirm(`Marcar ${selecionados.size} pedido(s) como executado, entregando exatamente o que foi solicitado (sem conferência item a item)?`)) {
+    if (
+      !confirm(
+        `Marcar ${selecionados.size} pedido(s) como executado, entregando exatamente o que foi solicitado (sem conferência item a item)?`,
+      )
+    ) {
       return;
     }
     setExecutandoLote(true);
@@ -173,7 +188,7 @@ export function PainelPage() {
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
   const [erroDetalhe, setErroDetalhe] = useState<string | null>(null);
   const [edicoes, setEdicoes] = useState<Record<number, EdicaoItem>>({});
-  const [confirmandoTudo, setConfirmandoTudo] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
 
   function abrirModal(id: number) {
     setPedidoModalId(id);
@@ -186,14 +201,9 @@ export function PainelPage() {
         setDetalhe(dados);
         setEdicoes(
           Object.fromEntries(
-            dados.itens.map((it) => [
-              it.id,
-              {
-                itemEntregueId: it.item_id_entregue ?? it.item_id_solicitado,
-                quantidade: String(it.quantidade_entregue ?? it.quantidade_solicitada),
-                motivo: it.motivo_substituicao ?? '',
-              },
-            ]),
+            dados.itens
+              .filter((it) => it.item_id_entregue == null)
+              .map((it) => [it.id, { quantidade: String(it.quantidade_solicitada), liberar: true }]),
           ),
         );
       })
@@ -208,48 +218,45 @@ export function PainelPage() {
     setErroDetalhe(null);
   }
 
-  const somenteLeitura = detalhe?.status === 'executado';
+  const todosItensConferidos = detalhe != null && detalhe.itens.every((it) => it.item_id_entregue != null);
 
-  async function confirmarEntregaCompleta() {
+  async function confirmarItensMarcados() {
     if (!detalhe) return;
-    const itensPendentes = detalhe.itens.filter((it) => it.item_id_entregue == null);
+    const itensParaEnviar = detalhe.itens.filter((it) => it.item_id_entregue == null && edicoes[it.id]?.liberar);
 
-    for (const it of itensPendentes) {
-      const edicao = edicoes[it.id];
-      const substituindo = edicao.itemEntregueId !== it.item_id_solicitado;
-      if (substituindo && !edicao.motivo.trim()) {
-        setErroDetalhe(`Descreva o motivo da substituição para "${it.item_solicitado?.nome ?? `item #${it.item_id_solicitado}`}".`);
+    if (itensParaEnviar.length === 0) {
+      setErroDetalhe('Marque ao menos um item para liberar (ou cancele).');
+      return;
+    }
+
+    for (const it of itensParaEnviar) {
+      const quantidade = Number(edicoes[it.id].quantidade);
+      const nome = it.item_solicitado?.nome ?? `item #${it.item_id_solicitado}`;
+      if (Number.isNaN(quantidade) || quantidade < 0) {
+        setErroDetalhe(`Informe uma quantidade dispensada válida para "${nome}".`);
         return;
       }
-      const quantidade = Number(edicao.quantidade);
-      if (Number.isNaN(quantidade) || quantidade < 0) {
-        setErroDetalhe(`Informe uma quantidade entregue válida para "${it.item_solicitado?.nome ?? `item #${it.item_id_solicitado}`}".`);
+      if (quantidade > it.quantidade_solicitada) {
+        setErroDetalhe(`A quantidade dispensada de "${nome}" não pode ser maior que a solicitada (${it.quantidade_solicitada}).`);
         return;
       }
     }
 
     setErroDetalhe(null);
-    setConfirmandoTudo(true);
+    setConfirmando(true);
     try {
-      for (const it of itensPendentes) {
-        const edicao = edicoes[it.id];
-        const substituindo = edicao.itemEntregueId !== it.item_id_solicitado;
-        const payload: ConferirItemPayload = {
-          quantidade_entregue: Number(edicao.quantidade),
-          ...(substituindo ? { item_id_entregue: edicao.itemEntregueId, motivo_substituicao: edicao.motivo.trim() } : {}),
-        };
-        // eslint-disable-next-line no-await-in-loop -- confirmação sequencial de propósito (cada item precisa do resultado do anterior)
+      for (const it of itensParaEnviar) {
+        const payload: ConferirItemPayload = { quantidade_entregue: Number(edicoes[it.id].quantidade) };
+        // eslint-disable-next-line no-await-in-loop -- confirmação sequencial de propósito (cada item é uma chamada própria da API)
         await api.patch(`/pedidos/${detalhe.id}/itens/${it.id}/conferir`, payload, { token });
       }
       fecharModal();
       carregarLista();
     } catch (err) {
-      setErroDetalhe(
-        mensagemErro(err, 'Não foi possível confirmar a entrega. Os itens já confirmados antes do erro foram salvos.'),
-      );
+      setErroDetalhe(mensagemErro(err, 'Não foi possível confirmar os itens marcados. Os itens já confirmados antes do erro foram salvos.'));
       abrirModal(detalhe.id);
     } finally {
-      setConfirmandoTudo(false);
+      setConfirmando(false);
     }
   }
 
@@ -301,6 +308,10 @@ export function PainelPage() {
           <div className={`v ${resumo.pendentes > 0 ? 'warn' : ''}`}>{carregandoLista ? '—' : resumo.pendentes}</div>
         </div>
         <div className="tile">
+          <div className="k">Parciais</div>
+          <div className="v">{carregandoLista ? '—' : resumo.parciais}</div>
+        </div>
+        <div className="tile">
           <div className="k">Executados</div>
           <div className="v">{carregandoLista ? '—' : resumo.executados}</div>
         </div>
@@ -311,7 +322,7 @@ export function PainelPage() {
       </div>
 
       <div className="tabs2" role="tablist">
-        {(['todos', 'pendente', 'executado'] as AbaStatus[]).map((valor) => (
+        {(['todos', 'pendente', 'parcial', 'executado'] as AbaStatus[]).map((valor) => (
           <button key={valor} type="button" role="tab" className="tab2" aria-selected={aba === valor} onClick={() => setAba(valor)}>
             {valor === 'todos' ? 'Todos' : labelStatusPedido(valor)}
           </button>
@@ -406,11 +417,10 @@ export function PainelPage() {
                 )}
                 {listaFiltrada.map((p) => {
                   const executado = p.status === 'executado';
-                  const substituicao = executado && pedidoTeveSubstituicao(p);
                   return (
                     <tr key={p.id} className={selecionados.has(p.id) ? 'selecionada' : ''}>
                       <td>
-                        {p.status === 'pendente' && (
+                        {!executado && (
                           <input
                             type="checkbox"
                             checked={selecionados.has(p.id)}
@@ -428,12 +438,7 @@ export function PainelPage() {
                       </td>
                       <td>
                         <span className={pillStatusPedido(p.status)}>{labelStatusPedido(p.status)}</span>
-                        {substituicao && (
-                          <div style={{ marginTop: 4 }}>
-                            <span className="pill roxo">item substituído</span>
-                          </div>
-                        )}
-                        {executado && p.data_execucao && (
+                        {p.data_execucao && (
                           <div className="obs" style={{ marginTop: 4 }}>
                             {formatarDataHora(p.data_execucao)}
                             {p.usuario_execucao && ` — ${p.usuario_execucao.nome}`}
@@ -443,7 +448,7 @@ export function PainelPage() {
                       <td>
                         <div className="acoes-linha">
                           <button type="button" className="btn ghost sm" onClick={() => abrirModal(p.id)}>
-                            {executado ? 'Ver detalhes' : 'Conferir e executar'}
+                            {executado ? 'Ver detalhes' : 'Conferir e liberar'}
                           </button>
                         </div>
                       </td>
@@ -487,91 +492,76 @@ export function PainelPage() {
             {carregandoDetalhe && <p className="carregando">Carregando…</p>}
             {!carregandoDetalhe && detalhe && (
               <>
-                <h2>{somenteLeitura ? 'Detalhes da entrega' : 'Conferir itens do pedido'}</h2>
+                <h2>{todosItensConferidos ? 'Detalhes da entrega' : 'Conferir itens do pedido'}</h2>
                 <div className="sub">
                   Pedido #{detalhe.id} — {detalhe.setor?.nome ?? `#${detalhe.setor_id}`} — {detalhe.responsavel_solicitante}
                 </div>
 
-                {somenteLeitura && <Alerta tipo="info">Este pedido já foi executado — exibindo apenas o que foi registrado (somente leitura).</Alerta>}
+                {todosItensConferidos && (
+                  <Alerta tipo="info">Todos os itens deste pedido já foram conferidos — exibindo apenas o que foi registrado (somente leitura).</Alerta>
+                )}
                 {erroDetalhe && <Alerta tipo="erro">{erroDetalhe}</Alerta>}
 
                 {detalhe.itens.map((it) => {
-                  const edicao = edicoes[it.id];
+                  const nome = it.item_solicitado?.nome ?? `item #${it.item_id_solicitado}`;
                   const jaConferido = it.item_id_entregue != null;
+
                   if (jaConferido) {
+                    const parcial = (it.quantidade_entregue ?? 0) < it.quantidade_solicitada;
                     return (
                       <div key={it.id} className="item-conferencia">
                         <div className="titulo-item">
-                          {it.item_solicitado?.nome ?? `item #${it.item_id_solicitado}`}{' '}
-                          <span className="qtd-pedida">(solicitado: {it.quantidade_solicitada})</span>
+                          {nome} <span className="qtd-pedida">(solicitado: {it.quantidade_solicitada})</span>
                         </div>
-                        <p className="note ok" style={{ marginTop: 0 }}>
-                          Entregue: <strong>{it.item_entregue?.nome ?? it.item_id_entregue}</strong> × {it.quantidade_entregue}
-                          {it.motivo_substituicao && <> — substituição: {it.motivo_substituicao}</>}
+                        <p className={`note ${parcial ? '' : 'ok'}`} style={{ marginTop: 0 }}>
+                          Dispensado: <strong>{it.quantidade_entregue}</strong> de {it.quantidade_solicitada}
+                          {it.quantidade_entregue === 0 && ' — não atendido'}
+                          {parcial && it.quantidade_entregue !== 0 && ' — entrega parcial'}
                         </p>
                       </div>
                     );
                   }
+
+                  const edicao = edicoes[it.id];
                   if (!edicao) return null;
-                  const substituindo = edicao.itemEntregueId !== it.item_id_solicitado;
                   return (
                     <div key={it.id} className="item-conferencia">
-                      <div className="titulo-item">
-                        {it.item_solicitado?.nome ?? `item #${it.item_id_solicitado}`}{' '}
-                        <span className="qtd-pedida">(solicitado: {it.quantidade_solicitada})</span>
-                      </div>
+                      <label className="titulo-item item-conferencia-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={edicao.liberar}
+                          onChange={(e) => setEdicoes((atual) => ({ ...atual, [it.id]: { ...atual[it.id], liberar: e.target.checked } }))}
+                        />
+                        {nome}
+                      </label>
                       <div className="grid">
                         <div className="field">
-                          <label>Item efetivamente liberado</label>
-                          <select
-                            value={edicao.itemEntregueId}
-                            onChange={(e) =>
-                              setEdicoes((atual) => ({ ...atual, [it.id]: { ...atual[it.id], itemEntregueId: Number(e.target.value) } }))
-                            }
-                          >
-                            <option value={it.item_id_solicitado}>{it.item_solicitado?.nome ?? 'Item solicitado'} (solicitado)</option>
-                            {catalogo
-                              .filter((c) => c.id !== it.item_id_solicitado)
-                              .map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.codigo} - {c.nome} (saldo {c.estoque_atual})
-                                </option>
-                              ))}
-                          </select>
+                          <label>Qtd. solicitada</label>
+                          <div className="box">{it.quantidade_solicitada}</div>
                         </div>
                         <div className="field">
-                          <label>Qtd. entregue</label>
+                          <label>Qtd. dispensada</label>
                           <input
                             type="number"
                             min={0}
+                            max={it.quantidade_solicitada}
+                            disabled={!edicao.liberar}
                             value={edicao.quantidade}
                             onChange={(e) => setEdicoes((atual) => ({ ...atual, [it.id]: { ...atual[it.id], quantidade: e.target.value } }))}
                           />
                         </div>
                       </div>
-                      {substituindo && (
-                        <div className="field" style={{ marginTop: 10 }}>
-                          <label>
-                            Motivo da substituição <span className="req">*</span>
-                          </label>
-                          <textarea
-                            placeholder="Ex.: não havia seringa com bico, liberada com rosca"
-                            value={edicao.motivo}
-                            onChange={(e) => setEdicoes((atual) => ({ ...atual, [it.id]: { ...atual[it.id], motivo: e.target.value } }))}
-                          />
-                        </div>
-                      )}
                     </div>
                   );
                 })}
 
                 <div className="modal-botoes">
                   <button type="button" className="btn ghost" onClick={fecharModal}>
-                    {somenteLeitura ? 'Fechar' : 'Cancelar'}
+                    {todosItensConferidos ? 'Fechar' : 'Cancelar'}
                   </button>
-                  {!somenteLeitura && (
-                    <button type="button" className="btn" disabled={confirmandoTudo} onClick={confirmarEntregaCompleta}>
-                      {confirmandoTudo ? 'Confirmando…' : 'Confirmar entrega e marcar executado'}
+                  {!todosItensConferidos && (
+                    <button type="button" className="btn" disabled={confirmando} onClick={confirmarItensMarcados}>
+                      {confirmando ? 'Confirmando…' : 'Confirmar itens marcados'}
                     </button>
                   )}
                 </div>

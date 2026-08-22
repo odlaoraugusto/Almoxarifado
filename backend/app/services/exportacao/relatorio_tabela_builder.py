@@ -19,6 +19,7 @@ _ORIGEM_LABEL = {
 
 _STATUS_PEDIDO_LABEL = {
     StatusPedidoEnum.pendente: "Pendente",
+    StatusPedidoEnum.parcial: "Parcial",
     StatusPedidoEnum.executado: "Executado",
 }
 

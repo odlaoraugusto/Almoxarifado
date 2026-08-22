@@ -680,7 +680,7 @@ tbody tr.selecionada {
 
 .tiles {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -1012,6 +1012,17 @@ tbody tr.selecionada {
 .item-conferencia .titulo-item .qtd-pedida {
   font-weight: 500;
   color: var(--muted);
+}
+.item-conferencia-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.item-conferencia-checkbox input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  flex: none;
 }
 .modal-botoes {
   display: flex;

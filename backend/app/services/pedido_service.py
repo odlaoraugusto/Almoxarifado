@@ -20,8 +20,11 @@ from app.schemas.usuario import UsuarioMe
 class PedidoService:
     """Pedido de material — criado pelo formulário PÚBLICO (sem login) e
     conferido item a item pela equipe do almoxarifado
-    (docs/00_PROJETO_ALMOXARIFADO.md, seção 4). `pedidos.status` só vira
-    `executado` quando TODOS os itens do pedido já foram conferidos."""
+    (docs/00_PROJETO_ALMOXARIFADO.md, seção 4). `pedidos.status` vira
+    `parcial` assim que o primeiro item é conferido (ou fica `parcial` se
+    algum item foi entregue em quantidade menor que a solicitada) e só
+    vira `executado` quando TODOS os itens foram conferidos com a
+    quantidade cheia."""
 
     def __init__(self):
         self.pedido_repository = PedidoRepository()
@@ -170,38 +173,29 @@ class PedidoService:
                 detail="Este item já foi conferido.",
             )
 
-        item_entregue_id = dados.item_id_entregue or pedido_item.item_id_solicitado
-        eh_substituicao = item_entregue_id != pedido_item.item_id_solicitado
-
-        if eh_substituicao and not (dados.motivo_substituicao and dados.motivo_substituicao.strip()):
+        if dados.quantidade_entregue > pedido_item.quantidade_solicitada:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="motivo_substituicao é obrigatório ao entregar um item "
-                "diferente do solicitado.",
+                detail="Quantidade entregue não pode ser maior que a quantidade solicitada.",
             )
 
-        item_entregue = self.item_repository.get_by_id(db, item_entregue_id)
-        if item_entregue is None or not item_entregue.ativo:
+        item = self.item_repository.get_by_id(db, pedido_item.item_id_solicitado)
+        if item is None or not item.ativo:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Item id={item_entregue_id} não encontrado ou inativo.",
+                detail=f"Item id={pedido_item.item_id_solicitado} não encontrado ou inativo.",
             )
 
         # quantidade_entregue=0 registra "não atendido" (item indisponível)
         # sem tocar em estoque.
         if dados.quantidade_entregue > 0:
-            self._consumir_fefo(
-                db, usuario, item_entregue.id, dados.quantidade_entregue, pedido_item.id
-            )
+            self._consumir_fefo(db, usuario, item.id, dados.quantidade_entregue, pedido_item.id)
 
-        pedido_item.item_id_entregue = item_entregue.id
+        pedido_item.item_id_entregue = item.id
         pedido_item.quantidade_entregue = dados.quantidade_entregue
-        pedido_item.motivo_substituicao = (
-            dados.motivo_substituicao.strip() if eh_substituicao else None
-        )
         self.pedido_item_repository.salvar(db, pedido_item)
 
-        self._finalizar_pedido_se_completo(db, usuario, pedido_id)
+        self._atualizar_status_pedido(db, usuario, pedido_id)
 
         return pedido_item
 
@@ -228,16 +222,31 @@ class PedidoService:
 
         return self.obter(db, pedido_id)
 
-    def _finalizar_pedido_se_completo(self, db: Session, usuario: UsuarioMe, pedido_id: int) -> None:
+    def _atualizar_status_pedido(self, db: Session, usuario: UsuarioMe, pedido_id: int) -> None:
+        """Recalcula o status a cada conferência — cada item só pode ser
+        conferido uma vez, então a transição é sempre "pra frente":
+        pendente -> parcial -> executado, ou pendente -> executado direto
+        se todos os itens forem conferidos de uma vez com a quantidade
+        cheia."""
         pedido = self.pedido_repository.get_by_id_for_update(db, pedido_id)
-        if pedido is None or pedido.status == StatusPedidoEnum.executado:
+        if pedido is None:
             return
 
         itens = self.pedido_item_repository.listar_por_pedido(db, pedido_id)
-        todos_conferidos = all(item.quantidade_entregue is not None for item in itens)
+        conferidos = [item for item in itens if item.quantidade_entregue is not None]
 
-        if todos_conferidos:
-            pedido.status = StatusPedidoEnum.executado
-            pedido.data_execucao = datetime.now(timezone.utc)
-            pedido.usuario_execucao_id = usuario.id
+        if not conferidos:
+            novo_status = StatusPedidoEnum.pendente
+        elif len(conferidos) == len(itens) and all(
+            item.quantidade_entregue == item.quantidade_solicitada for item in itens
+        ):
+            novo_status = StatusPedidoEnum.executado
+        else:
+            novo_status = StatusPedidoEnum.parcial
+
+        if pedido.status != novo_status:
+            pedido.status = novo_status
+            if novo_status in (StatusPedidoEnum.parcial, StatusPedidoEnum.executado):
+                pedido.data_execucao = datetime.now(timezone.utc)
+                pedido.usuario_execucao_id = usuario.id
             self.pedido_repository.salvar(db, pedido)

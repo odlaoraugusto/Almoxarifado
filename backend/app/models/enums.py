@@ -15,11 +15,14 @@ class OrigemEnum(str, enum.Enum):
 
 
 class StatusPedidoEnum(str, enum.Enum):
-    """`executado` só é atingido quando TODOS os itens do pedido já
-    passaram por conferência (`PedidoItem.quantidade_entregue is not
-    None`) — ver `PedidoService.conferir_item`."""
+    """`pendente`: nenhum item conferido ainda. `parcial`: pelo menos um
+    item conferido, mas nem todos (fila em aberto) OU todos conferidos
+    porém algum entregue em quantidade menor que a solicitada.
+    `executado`: todos os itens conferidos com quantidade_entregue ==
+    quantidade_solicitada. Ver `PedidoService._atualizar_status_pedido`."""
 
     pendente = "pendente"
+    parcial = "parcial"
     executado = "executado"
 
 
