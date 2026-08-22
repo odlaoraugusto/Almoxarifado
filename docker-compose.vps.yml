@@ -1,8 +1,10 @@
-# Deploy do backend nesta VPS específica — reaproveita o Postgres e o
-# Traefik já rodando (mesmo padrão do stack do n8n em /opt/stacks/n8n):
-# o container do Postgres NUNCA é exposto à internet, só entra na rede
-# "backend" interna do Docker; só o backend do almoxarifado é publicado,
-# via Traefik com HTTPS automático (Let's Encrypt) na rede "proxy".
+# Deploy do backend E do frontend nesta VPS específica — reaproveita o
+# Postgres e o Traefik já rodando (mesmo padrão do stack do n8n em
+# /opt/stacks/n8n): o container do Postgres NUNCA é exposto à internet,
+# só entra na rede "backend" interna do Docker; backend e frontend do
+# almoxarifado são publicados via Traefik com HTTPS automático (Let's
+# Encrypt) na rede "proxy". Frontend substitui o deploy na Vercel — tudo
+# num lugar só.
 #
 # Uso (na VPS, dentro do checkout deste repo):
 #   cp .env.vps.example .env   # preencher com os valores reais
@@ -11,6 +13,10 @@
 # Depois do primeiro up, rodar os seeds uma vez:
 #   docker compose -f docker-compose.vps.yml exec almoxarifado-backend python scripts/seed_usuarios.py
 #   docker compose -f docker-compose.vps.yml exec almoxarifado-backend python scripts/seed_setores.py
+#
+# Reconstruir só o frontend depois de mudar VITE_* no .env (build arg,
+# não dá pra recarregar sem rebuild):
+#   docker compose -f docker-compose.vps.yml up -d --build almoxarifado-frontend
 services:
   almoxarifado-backend:
     build: ./backend
@@ -27,6 +33,25 @@ services:
       - "traefik.http.routers.almoxarifado-backend.entrypoints=websecure"
       - "traefik.http.routers.almoxarifado-backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.almoxarifado-backend.loadbalancer.server.port=8000"
+
+  almoxarifado-frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_ORGANIZACAO: ${VITE_ORGANIZACAO}
+        VITE_HOSPITAL_NOME: ${VITE_HOSPITAL_NOME}
+        VITE_HOSPITAL_SIGLA: ${VITE_HOSPITAL_SIGLA}
+    container_name: almoxarifado-frontend
+    restart: unless-stopped
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.almoxarifado-frontend.rule=Host(`almoxarifado.169-58-217-209.sslip.io`)"
+      - "traefik.http.routers.almoxarifado-frontend.entrypoints=websecure"
+      - "traefik.http.routers.almoxarifado-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.almoxarifado-frontend.loadbalancer.server.port=80"
 
 networks:
   proxy:
