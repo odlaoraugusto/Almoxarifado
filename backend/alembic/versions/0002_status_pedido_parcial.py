@@ -10,8 +10,9 @@ em vez de aparecer como "executado".
 
 Nota: apesar de `pedidos.status` usar `sa.Enum(..., native_enum=False)`
 no model (mesmo padrão "VARCHAR + CHECK" da farmácia, pra evitar
-ALTER TYPE), conferido direto no banco da instalação real (`\d pedidos`)
-não existe NENHUMA CHECK CONSTRAINT na coluna — é só VARCHAR(15) livre.
+ALTER TYPE), conferido direto no banco da instalação real (psql,
+comando "describe pedidos") não existe NENHUMA CHECK CONSTRAINT na
+coluna — é só VARCHAR(15) livre.
 Aparentemente o Enum inline dentro de `op.create_table` não emitiu a
 constraint em `0001_schema_inicial` (limitação do Alembic com o tipo
 instanciado ali, não reproduzida ao gerar `--sql` offline em isolamento
