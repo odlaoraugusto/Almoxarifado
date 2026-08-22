@@ -1,11 +1,13 @@
 from pydantic import BaseModel, ConfigDict
 
+from app.models.enums import CategoriaItemEnum
+
 
 class ItemCreate(BaseModel):
     codigo: str
     nome: str
     apresentacao: str
-    categoria: str
+    categoria: CategoriaItemEnum
     estoque_minimo: int = 0
 
 
@@ -13,7 +15,7 @@ class ItemUpdate(BaseModel):
     codigo: str | None = None
     nome: str | None = None
     apresentacao: str | None = None
-    categoria: str | None = None
+    categoria: CategoriaItemEnum | None = None
     estoque_minimo: int | None = None
     ativo: bool | None = None
 
@@ -26,7 +28,7 @@ class ItemPublicoOut(BaseModel):
     codigo: str
     nome: str
     apresentacao: str
-    categoria: str
+    categoria: CategoriaItemEnum
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -40,7 +42,7 @@ class ItemResumoOut(BaseModel):
     codigo: str
     nome: str
     apresentacao: str
-    categoria: str
+    categoria: CategoriaItemEnum
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -50,7 +52,7 @@ class ItemOut(BaseModel):
     codigo: str
     nome: str
     apresentacao: str
-    categoria: str
+    categoria: CategoriaItemEnum
     estoque_minimo: int
     ativo: bool
 

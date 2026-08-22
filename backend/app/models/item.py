@@ -1,16 +1,15 @@
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import Boolean, Column, Enum, Integer, String
 
 from app.database.database import Base
+from app.models.enums import CategoriaItemEnum
 
 
 class Item(Base):
     """Catálogo de materiais do almoxarifado — cadastro geral, NÃO é o
     saldo em si (o saldo físico mora em `Lote`, docs/00_PROJETO_ALMOXARIFADO.md
-    seção 4). `apresentacao`/`categoria` são texto livre (não enum): a
-    lista de categorias é definida pelo Coordenador na prática (ex. "Mat.
-    Med.", "EPI/SIAST", "Higienização" — ver docs/prototipo_formulario_publico.html)
-    e pode crescer sem exigir migração, mesmo raciocínio já documentado no
-    projeto irmão para evitar `ALTER TYPE`."""
+    seção 4). `apresentacao` continua texto livre; `categoria` é lista
+    fechada (`CategoriaItemEnum`, pedido do cliente — antes era texto
+    livre tipo "Mat. Med."/"EPI/SIAST", ver migration 0004)."""
 
     __tablename__ = "itens"
 
@@ -19,7 +18,10 @@ class Item(Base):
     codigo = Column(String(30), unique=True, nullable=False, index=True)
     nome = Column(String(200), nullable=False)
     apresentacao = Column(String(100), nullable=False)
-    categoria = Column(String(60), nullable=False)
+    categoria = Column(
+        Enum(CategoriaItemEnum, name="categoria_item_enum", native_enum=False, length=20),
+        nullable=False,
+    )
 
     estoque_minimo = Column(Integer, nullable=False, default=0, server_default="0")
 

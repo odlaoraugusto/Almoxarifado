@@ -13,7 +13,10 @@ export type Perfil = 'coordenador' | 'atendente';
 
 export type StatusPedido = 'pendente' | 'parcial' | 'executado';
 
-export type OrigemLote = 'compra' | 'doacao';
+export type OrigemLote = 'compra' | 'doacao' | 'emprestimo';
+
+/** Lista fechada — antes era texto livre no cadastro do item. */
+export type CategoriaItem = 'material_medico' | 'epi' | 'higienizacao' | 'expediente';
 
 export type TipoMovimentacao = 'entrada' | 'saida' | 'ajuste';
 
@@ -51,7 +54,7 @@ export interface ItemPublico {
   codigo: string;
   nome: string;
   apresentacao: string | null;
-  categoria: string | null;
+  categoria: CategoriaItem;
 }
 
 /** Catálogo com saldo agregado (Σ lotes) — usado nas telas autenticadas. */
@@ -65,7 +68,7 @@ export interface ItemCriarPayload {
   codigo: string;
   nome: string;
   apresentacao?: string;
-  categoria?: string;
+  categoria: CategoriaItem;
   estoque_minimo: number;
 }
 

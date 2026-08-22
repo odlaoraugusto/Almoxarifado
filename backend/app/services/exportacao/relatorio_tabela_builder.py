@@ -2,7 +2,7 @@
 validados/preenchidos pelo `RelatorioService`) numa `TabelaRelatorio`,
 pronta para os exportadores (PDF/Excel) desenharem."""
 
-from app.models.enums import OrigemEnum, StatusPedidoEnum
+from app.models.enums import CategoriaItemEnum, OrigemEnum, StatusPedidoEnum
 from app.schemas.relatorio import (
     RelatorioEstoqueOut,
     RelatorioMovimentacoesOut,
@@ -23,6 +23,13 @@ _STATUS_PEDIDO_LABEL = {
     StatusPedidoEnum.executado: "Executado",
 }
 
+_CATEGORIA_ITEM_LABEL = {
+    CategoriaItemEnum.material_medico: "Material Médico",
+    CategoriaItemEnum.epi: "EPI",
+    CategoriaItemEnum.higienizacao: "Higienização",
+    CategoriaItemEnum.expediente: "Material de Expediente",
+}
+
 
 def _texto(valor) -> str:
     return "" if valor is None else str(valor)
@@ -38,50 +45,49 @@ def _periodo_extra(periodo_inicio, periodo_fim) -> list[str]:
 
 
 def tabela_pedidos(relatorio: RelatorioPedidosOut) -> TabelaRelatorio:
+    """Uma linha por ITEM de pedido (não por pedido) — item solicitado,
+    quantidade solicitada e quantidade dispensada em colunas separadas,
+    pra dar pra somar/filtrar por item na planilha em vez de precisar
+    ler um resumo em texto corrido. Pedidos com N itens geram N linhas,
+    repetindo os dados do cabeçalho do pedido em cada uma."""
     colunas = [
         "Pedido",
         "Setor",
         "Responsável",
         "Status",
-        "Itens (solicitado -> entregue)",
+        "Item",
+        "Qtd. Solicitada",
+        "Qtd. Dispensada",
         "Data/Hora",
         "Executado Por",
     ]
     linhas = []
     for pedido in relatorio.itens:
-        resumo_itens = "; ".join(
-            f"{item.item_solicitado.nome} (pediu {item.quantidade_solicitada}"
-            + (
-                f", entregou {item.quantidade_entregue}"
-                + (
-                    f" de {item.item_entregue.nome}"
-                    if item.item_entregue and item.item_entregue.id != item.item_solicitado.id
-                    else ""
-                )
-                if item.quantidade_entregue is not None
-                else ", aguardando conferência"
+        status_label = _STATUS_PEDIDO_LABEL.get(pedido.status, pedido.status.value)
+        executado_por = pedido.usuario_execucao.nome if pedido.usuario_execucao else ""
+        data_hora = formatar_data_hora(pedido.data_hora)
+        for item in pedido.itens:
+            dispensada = "" if item.quantidade_entregue is None else str(item.quantidade_entregue)
+            linhas.append(
+                [
+                    str(pedido.id),
+                    pedido.setor.nome,
+                    pedido.responsavel_solicitante,
+                    status_label,
+                    item.item_solicitado.nome,
+                    str(item.quantidade_solicitada),
+                    dispensada,
+                    data_hora,
+                    executado_por,
+                ]
             )
-            + ")"
-            for item in pedido.itens
-        )
-        linhas.append(
-            [
-                str(pedido.id),
-                pedido.setor.nome,
-                pedido.responsavel_solicitante,
-                _STATUS_PEDIDO_LABEL.get(pedido.status, pedido.status.value),
-                resumo_itens,
-                formatar_data_hora(pedido.data_hora),
-                pedido.usuario_execucao.nome if pedido.usuario_execucao else "",
-            ]
-        )
 
     return TabelaRelatorio(
         metadados=relatorio.metadados,
         colunas=colunas,
         linhas=linhas,
         informacoes_extra=_periodo_extra(relatorio.periodo_inicio, relatorio.periodo_fim),
-        larguras_relativas=[0.6, 1.1, 1.2, 0.9, 2.6, 1.1, 1.1],
+        larguras_relativas=[0.5, 1.0, 1.1, 0.8, 1.8, 0.9, 0.9, 1.1, 1.0],
     )
 
 
@@ -91,7 +97,7 @@ def tabela_estoque(relatorio: RelatorioEstoqueOut) -> TabelaRelatorio:
         [
             item.codigo,
             item.nome,
-            item.categoria,
+            _CATEGORIA_ITEM_LABEL.get(item.categoria, str(item.categoria)),
             str(item.estoque_atual),
             str(item.estoque_minimo),
             "CRÍTICO" if item.critico else "OK",

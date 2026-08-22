@@ -15,6 +15,17 @@ class OrigemEnum(str, enum.Enum):
     emprestimo = "emprestimo"
 
 
+class CategoriaItemEnum(str, enum.Enum):
+    """Lista fechada (pedido do cliente) — antes era texto livre. Rótulos
+    de exibição em `app/services/exportacao/relatorio_tabela_builder.py`
+    e no frontend (`src/lib/formato.ts`)."""
+
+    material_medico = "material_medico"
+    epi = "epi"
+    higienizacao = "higienizacao"
+    expediente = "expediente"
+
+
 class DirecaoEmprestimoEnum(str, enum.Enum):
     """`saida`: a gente empresta material pra uma unidade externa — baixa
     real de estoque via FEFO (`app.services.consumo_fefo`). `entrada`: a

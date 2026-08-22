@@ -3,6 +3,7 @@ import type { FormEvent, KeyboardEvent } from 'react';
 import { jsPDF } from 'jspdf';
 import { api, mensagemErro } from '../lib/api';
 import { HOSPITAL_SIGLA } from '../lib/instituicao';
+import { labelCategoriaItem } from '../lib/formato';
 import type { ItemPublico, PedidoCriarPayload, PedidoOut, Setor } from '../types';
 
 interface LinhaPedido {
@@ -316,7 +317,7 @@ export function PedidoPublicoPage() {
                             <span>{item.codigo}</span> — {item.nome}
                             {jaAdicionado ? ' (já adicionado)' : ''}
                           </span>
-                          <span className="badge-categoria">{item.categoria ?? '—'}</span>
+                          <span className="badge-categoria">{labelCategoriaItem(item.categoria)}</span>
                         </li>
                       );
                     })}
@@ -360,7 +361,7 @@ export function PedidoPublicoPage() {
                         <span style={{ fontSize: 11, color: 'var(--muted)' }}>{l.item.apresentacao ?? ''}</span>
                       </td>
                       <td>
-                        <span className="badge-categoria">{l.item.categoria ?? '—'}</span>
+                        <span className="badge-categoria">{labelCategoriaItem(l.item.categoria)}</span>
                       </td>
                       <td>
                         <input

@@ -4,10 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { api, mensagemErro } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
-import { diasAteVencer, formatarData, formatarMoeda, labelOrigemLote, nivelValidade } from '../lib/formato';
-import type { AjusteCriarPayload, ItemCriarPayload, ItemOut, LoteOut } from '../types';
+import { CATEGORIAS_ITEM, diasAteVencer, formatarData, formatarMoeda, labelCategoriaItem, labelOrigemLote, nivelValidade } from '../lib/formato';
+import type { AjusteCriarPayload, CategoriaItem, ItemCriarPayload, ItemOut, LoteOut } from '../types';
 
-const FORM_ITEM_VAZIO = { codigo: '', nome: '', apresentacao: '', categoria: '', estoque_minimo: '0' };
+const FORM_ITEM_VAZIO = { codigo: '', nome: '', apresentacao: '', categoria: 'material_medico' as CategoriaItem, estoque_minimo: '0' };
 
 /** Estoque do almoxarifado — catálogo de itens com saldo agregado (Σ
  * lotes), alerta de estoque crítico e vencimento em 4 grupos (vencido,
@@ -106,7 +106,7 @@ export function EstoquePage() {
       codigo: item.codigo,
       nome: item.nome,
       apresentacao: item.apresentacao ?? '',
-      categoria: item.categoria ?? '',
+      categoria: item.categoria,
       estoque_minimo: String(item.estoque_minimo),
     });
   }
@@ -124,7 +124,7 @@ export function EstoquePage() {
       codigo: formItem.codigo.trim(),
       nome: formItem.nome.trim(),
       apresentacao: formItem.apresentacao.trim() || undefined,
-      categoria: formItem.categoria.trim() || undefined,
+      categoria: formItem.categoria,
       estoque_minimo: Number(formItem.estoque_minimo) || 0,
     };
     try {
@@ -308,15 +308,20 @@ export function EstoquePage() {
             </div>
             <div className="field">
               <label htmlFor="item-categoria">
-                Categoria <span className="tag">opcional</span>
+                Categoria <span className="req">*</span>
               </label>
-              <input
+              <select
                 id="item-categoria"
-                type="text"
-                placeholder="ex.: EPI/SIAST"
                 value={formItem.categoria}
-                onChange={(e) => setFormItem((f) => ({ ...f, categoria: e.target.value }))}
-              />
+                onChange={(e) => setFormItem((f) => ({ ...f, categoria: e.target.value as CategoriaItem }))}
+                required
+              >
+                {CATEGORIAS_ITEM.map((c) => (
+                  <option key={c} value={c}>
+                    {labelCategoriaItem(c)}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="field">
               <label htmlFor="item-min">
@@ -441,7 +446,7 @@ export function EstoquePage() {
                         {item.nome}
                         {!item.ativo && <span className="pill muted" style={{ marginLeft: 8 }}>inativo</span>}
                       </td>
-                      <td>{item.categoria ?? '—'}</td>
+                      <td>{labelCategoriaItem(item.categoria)}</td>
                       <td className="num">{item.estoque_atual}</td>
                       <td className="num">{item.estoque_minimo}</td>
                       <td>{critico && <span className="pill danger">crítico</span>}</td>

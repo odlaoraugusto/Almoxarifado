@@ -66,10 +66,21 @@ export function pillStatusPedido(status: string): string {
   return 'pill muted';
 }
 
-const ORIGEM_LOTE_LABEL: Record<string, string> = { compra: 'Compra', doacao: 'Doação' };
+const ORIGEM_LOTE_LABEL: Record<string, string> = { compra: 'Compra', doacao: 'Doação', emprestimo: 'Empréstimo/Permuta' };
 export function labelOrigemLote(origem: string): string {
   return ORIGEM_LOTE_LABEL[origem] ?? origem;
 }
+
+const CATEGORIA_ITEM_LABEL: Record<string, string> = {
+  material_medico: 'Material Médico',
+  epi: 'EPI',
+  higienizacao: 'Higienização',
+  expediente: 'Material de Expediente',
+};
+export function labelCategoriaItem(categoria: string): string {
+  return CATEGORIA_ITEM_LABEL[categoria] ?? categoria;
+}
+export const CATEGORIAS_ITEM = Object.keys(CATEGORIA_ITEM_LABEL) as Array<keyof typeof CATEGORIA_ITEM_LABEL>;
 
 const TIPO_MOV_LABEL: Record<string, string> = {
   entrada: 'Entrada',
