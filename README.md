@@ -35,6 +35,17 @@ Ver `backend/README.md` e `frontend/README.md` para como rodar cada parte localm
 | Atendente (4) | Sim | Ver fila, assumir/atender/recusar solicitações, dar entrada de estoque, ver relatórios |
 | Coordenador (1) | Sim | Tudo do Atendente + cadastrar/editar itens do catálogo, gerenciar usuários (os 5 logins) |
 
+## Ambiente de teste online
+
+- **Frontend**: https://almoxarifado-virid.vercel.app (Vercel)
+- **Backend**: https://almoxarifado-api.169-58-217-209.sslip.io (Docker na VPS, atrás de Traefik/HTTPS — ver `docker-compose.vps.yml`)
+- **Banco**: Postgres na mesma VPS (container `postgres` já usado por outros serviços — o almoxarifado tem **banco e usuário próprios**, isolados; nunca exposto à internet, só acessível pela rede Docker interna)
+- **Código**: https://github.com/odlaoraugusto/Almoxarifado (público — nome real da instituição só em `.env`, nunca commitado)
+
+`render.yaml` continua no repo como caminho alternativo de deploy (Render + Neon), mas o ambiente de teste ativo agora é a VPS.
+
+Credenciais iniciais (seed): login `coordenador` / `atendente1`..`atendente4`, senha temporária `Almox@2026` — troca obrigatória no primeiro acesso.
+
 ## Status
 
-Em construção — v1 inicial.
+v1 inicial no ar em ambiente de teste. Catálogo de itens ainda vazio — cadastrar pela tela `/estoque` (Coordenador).
