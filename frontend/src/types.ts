@@ -212,8 +212,78 @@ export interface MovimentacaoOut {
   lote?: LoteOut;
   quantidade: number;
   pedido_item_id: number | null;
+  emprestimo_id: number | null;
   motivo_ajuste: string | null;
   usuario_id: number;
   usuario_nome?: string;
   data_hora: string;
+}
+
+// ---- Prévia dos relatórios (GET /relatorios/* sem `formato` — mesmo
+// JSON usado pra montar o PDF/Excel, ver app/schemas/relatorio.py) ----
+
+export interface RelatorioMetadados {
+  hospital: string;
+  organizacao: string;
+  titulo_relatorio: string;
+  gerado_em: string;
+  gerado_por: string;
+}
+
+export interface RelatorioPedidosOut {
+  metadados: RelatorioMetadados;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+  itens: PedidoOut[];
+}
+
+export interface RelatorioEstoqueItem {
+  item_id: number;
+  codigo: string;
+  nome: string;
+  categoria: CategoriaItem;
+  estoque_atual: number;
+  estoque_minimo: number;
+  critico: boolean;
+}
+export interface RelatorioEstoqueOut {
+  metadados: RelatorioMetadados;
+  itens: RelatorioEstoqueItem[];
+}
+
+/** `nivel`: 'vencido' | 'ate_30_dias' | '31_a_60_dias'. */
+export interface RelatorioVencimentoItem {
+  lote_id: number;
+  item_id: number;
+  item_nome: string;
+  numero_lote: string | null;
+  data_validade: string;
+  quantidade_atual: number;
+  dias_para_vencer: number;
+  nivel: string;
+}
+export interface RelatorioVencimentosOut {
+  metadados: RelatorioMetadados;
+  dias_considerados: number;
+  itens: RelatorioVencimentoItem[];
+}
+
+export interface RelatorioMovimentacaoItem {
+  id: number;
+  tipo: TipoMovimentacao;
+  lote_id: number;
+  lote: LoteOut & { item: ItemPublico };
+  quantidade: number;
+  pedido_item_id: number | null;
+  emprestimo_id: number | null;
+  motivo_ajuste: string | null;
+  usuario_id: number;
+  usuario: { id: number; nome: string; perfil: Perfil };
+  data_hora: string;
+}
+export interface RelatorioMovimentacoesOut {
+  metadados: RelatorioMetadados;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+  itens: RelatorioMovimentacaoItem[];
 }

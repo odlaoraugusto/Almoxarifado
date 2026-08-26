@@ -82,6 +82,15 @@ export function labelCategoriaItem(categoria: string): string {
 }
 export const CATEGORIAS_ITEM = Object.keys(CATEGORIA_ITEM_LABEL) as Array<keyof typeof CATEGORIA_ITEM_LABEL>;
 
+const NIVEL_VENCIMENTO_RELATORIO_LABEL: Record<string, string> = {
+  vencido: 'Vencido',
+  ate_30_dias: 'Vence em até 30 dias',
+  '31_a_60_dias': 'Vence entre 31 e 60 dias',
+};
+export function labelNivelVencimentoRelatorio(nivel: string): string {
+  return NIVEL_VENCIMENTO_RELATORIO_LABEL[nivel] ?? nivel;
+}
+
 const TIPO_MOV_LABEL: Record<string, string> = {
   entrada: 'Entrada',
   saida: 'Saída',
