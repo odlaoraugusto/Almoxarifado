@@ -1,3 +1,6 @@
-# Segredos do deploy nesta VPS (docker-compose.vps.yml usa ./.env via env_file).
+# Segredos de deploy (docker-compose.vps.yml e docker-compose.local.yml
+# usam ambos ./.env via env_file — nunca o mesmo arquivo nem a mesma
+# instalação, mas o nome no disco é igual).
 /.env
 !.env.vps.example
+!.env.local.example
