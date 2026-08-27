@@ -10,9 +10,11 @@
 #   cp .env.vps.example .env   # preencher com os valores reais
 #   docker compose -f docker-compose.vps.yml up -d --build
 #
-# Depois do primeiro up, rodar os seeds uma vez:
+# Depois do primeiro up, rodar as migrations e os seeds uma vez:
+#   docker compose -f docker-compose.vps.yml exec almoxarifado-backend python -m alembic upgrade head
 #   docker compose -f docker-compose.vps.yml exec almoxarifado-backend python scripts/seed_usuarios.py
 #   docker compose -f docker-compose.vps.yml exec almoxarifado-backend python scripts/seed_setores.py
+#   docker compose -f docker-compose.vps.yml exec almoxarifado-backend python scripts/seed_admin.py
 #
 # Reconstruir só o frontend depois de mudar VITE_* no .env (build arg,
 # não dá pra recarregar sem rebuild):
@@ -29,7 +31,7 @@ services:
       - backend
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.almoxarifado-backend.rule=Host(`almoxarifado-api.169-58-217-209.sslip.io`)"
+      - "traefik.http.routers.almoxarifado-backend.rule=Host(`${BACKEND_HOST}`)"
       - "traefik.http.routers.almoxarifado-backend.entrypoints=websecure"
       - "traefik.http.routers.almoxarifado-backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.almoxarifado-backend.loadbalancer.server.port=8000"
@@ -48,7 +50,7 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.almoxarifado-frontend.rule=Host(`almoxarifado.169-58-217-209.sslip.io`)"
+      - "traefik.http.routers.almoxarifado-frontend.rule=Host(`${FRONTEND_HOST}`)"
       - "traefik.http.routers.almoxarifado-frontend.entrypoints=websecure"
       - "traefik.http.routers.almoxarifado-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.almoxarifado-frontend.loadbalancer.server.port=80"

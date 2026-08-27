@@ -15,6 +15,7 @@ from app.models import (  # noqa: F401
     movimentacao,
     pedido,
     pedido_item,
+    permissao_perfil,
     setor,
     usuario,
 )

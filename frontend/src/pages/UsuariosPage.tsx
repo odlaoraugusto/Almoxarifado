@@ -7,7 +7,7 @@ import { Alerta } from '../components/Alerta';
 import { labelPerfil } from '../lib/formato';
 import type { Perfil, UsuarioOut } from '../types';
 
-const PERFIS: Perfil[] = ['atendente', 'coordenador'];
+const PERFIS_BASE: Perfil[] = ['atendente', 'coordenador'];
 
 const FORM_VAZIO = {
   nome: '',
@@ -16,13 +16,16 @@ const FORM_VAZIO = {
   perfil: 'atendente' as Perfil,
 };
 
-/** Gestão de usuários — exclusiva do Coordenador. Só existem 5 logins no
- * sistema (1 coordenador + 4 atendentes). Não existe DELETE — "excluir"
- * um usuário é marcá-lo inativo (preserva a autoria de pedidos conferidos
- * historicamente). `login` não é editável depois de criado. */
+/** Gestão de usuários — liberada conforme a matriz de permissões (tela
+ * Permissões, exclusiva do Admin). Os 5 logins operacionais do
+ * almoxarifado (1 coordenador + 4 atendentes) + o(s) login(s) de Admin.
+ * Não existe DELETE — "excluir" um usuário é marcá-lo inativo (preserva
+ * a autoria de pedidos conferidos historicamente). `login` não é
+ * editável depois de criado. Promover alguém a Admin só aparece como
+ * opção pra quem já é Admin — o backend rejeita de qualquer forma. */
 export function UsuariosPage() {
-  const { usuario, token } = useAuth();
-  const permissoes = permissoesDe(usuario);
+  const { usuario, matrizPermissoes, token } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
 
   if (!permissoes.gestaoUsuarios) {
     return (
@@ -32,16 +35,30 @@ export function UsuariosPage() {
         </div>
         <div className="locked-panel">
           <span className="lock-icon">🔒</span>
-          Gestão de usuários é exclusiva do Coordenador.
+          Gestão de usuários não está liberada para o seu perfil (configurável pelo Admin na tela Permissões).
         </div>
       </section>
     );
   }
 
-  return <GestaoUsuarios token={token} usuarioLogadoId={usuario?.id ?? null} />;
+  return (
+    <GestaoUsuarios
+      token={token}
+      usuarioLogadoId={usuario?.id ?? null}
+      souAdmin={usuario?.perfil === 'admin'}
+    />
+  );
 }
 
-function GestaoUsuarios({ token, usuarioLogadoId }: { token: string | null; usuarioLogadoId: number | null }) {
+function GestaoUsuarios({
+  token,
+  usuarioLogadoId,
+  souAdmin,
+}: {
+  token: string | null;
+  usuarioLogadoId: number | null;
+  souAdmin: boolean;
+}) {
   const [usuarios, setUsuarios] = useState<UsuarioOut[]>([]);
   const [mostrarInativos, setMostrarInativos] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -125,10 +142,9 @@ function GestaoUsuarios({ token, usuarioLogadoId }: { token: string | null; usua
     <section>
       <div className="screen-head">
         <h1>Usuários</h1>
-        <span className="screen-tag">exclusivo Coordenador</span>
       </div>
       <p className="screen-sub">
-        Os 5 logins da equipe do almoxarifado. Desativar um usuário não apaga o histórico de pedidos já conferidos
+        Os logins da equipe do almoxarifado. Desativar um usuário não apaga o histórico de pedidos já conferidos
         por ele. O login não pode ser alterado depois de criado.
       </p>
 
@@ -202,7 +218,7 @@ function GestaoUsuarios({ token, usuarioLogadoId }: { token: string | null; usua
               disabled={editandoEuMesmo}
               onChange={(e) => setForm((f) => ({ ...f, perfil: e.target.value as Perfil }))}
             >
-              {PERFIS.map((p) => (
+              {(souAdmin ? [...PERFIS_BASE, 'admin' as Perfil] : PERFIS_BASE).map((p) => (
                 <option key={p} value={p}>
                   {labelPerfil(p)}
                 </option>

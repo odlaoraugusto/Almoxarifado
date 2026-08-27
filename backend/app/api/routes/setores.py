@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import exigir_perfis, get_current_user
+from app.api.deps import exigir_permissao, get_current_user
 from app.database.session import get_db
-from app.models.enums import PerfilEnum
 from app.schemas.setor import SetorCreate, SetorOut, SetorPublicoOut, SetorUpdate
 from app.services.setor_service import SetorService
 
@@ -11,9 +10,9 @@ router = APIRouter(prefix="/setores", tags=["Setores"])
 
 service = SetorService()
 
-# Cadastro de setores — exclusivo do Coordenador (matriz de permissões,
-# docs/00_PROJETO_ALMOXARIFADO.md seção 3.3).
-_PODE_GERIR = exigir_perfis(PerfilEnum.coordenador)
+# Cadastro de setores — controlado pela matriz de permissões (tela
+# /permissoes, exclusiva do Admin — app/api/deps.py::exigir_permissao).
+_PODE_GERIR = exigir_permissao("gerenciar_setores")
 
 
 @router.get("/publico", response_model=list[SetorPublicoOut])

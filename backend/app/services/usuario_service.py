@@ -2,14 +2,19 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_senha
+from app.models.enums import PerfilEnum
 from app.models.usuario import Usuario
 from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.usuario import UsuarioCreate, UsuarioMe, UsuarioUpdate
 
 
 class UsuarioService:
-    """Gestão de usuários — exclusiva do Coordenador (router garante o
-    perfil)."""
+    """Gestão de usuários — controlada pela matriz de permissões
+    (router garante isso via `exigir_permissao("gestao_usuarios")`).
+    Promover alguém a Admin, porém, é exclusivo do próprio Admin,
+    independente dessa matriz — trava de segurança contra um
+    Coordenador/Atendente com `gestao_usuarios` liberado se
+    autopromover (ou promover terceiros) a superusuário."""
 
     def __init__(self):
         self.usuario_repository = UsuarioRepository()
@@ -17,7 +22,13 @@ class UsuarioService:
     def listar(self, db: Session, incluir_inativos: bool) -> list[Usuario]:
         return self.usuario_repository.list(db, incluir_inativos)
 
-    def criar(self, db: Session, dados: UsuarioCreate) -> Usuario:
+    def criar(self, db: Session, usuario_logado: UsuarioMe, dados: UsuarioCreate) -> Usuario:
+        if dados.perfil == PerfilEnum.admin and usuario_logado.perfil != PerfilEnum.admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Só um Admin pode criar outro usuário Admin.",
+            )
+
         if self.usuario_repository.get_by_login(db, dados.login):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -63,6 +74,12 @@ class UsuarioService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Você não pode alterar o próprio perfil de acesso.",
                 )
+
+        if dados.perfil == PerfilEnum.admin and usuario_logado.perfil != PerfilEnum.admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Só um Admin pode promover outro usuário a Admin.",
+            )
 
         if dados.senha:
             usuario.senha_hash = hash_senha(dados.senha)

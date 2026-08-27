@@ -43,8 +43,8 @@ const CAMINHO_RELATORIO: Record<AbaRelatorio, string> = {
  * arquivo pronto, ver `app/api/routes/relatorios.py`), então as colunas
  * na tela são exatamente as mesmas do arquivo exportado. */
 export function RelatoriosPage() {
-  const { token, usuario } = useAuth();
-  const permissoes = permissoesDe(usuario);
+  const { token, usuario, matrizPermissoes } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
 
   const abasDisponiveis: AbaRelatorio[] = permissoes.relatorioMovimentacoes
     ? ['pedidos', 'estoque', 'vencimentos', 'movimentacoes']

@@ -2,10 +2,11 @@
 
 SaaS para controle de almoxarifado hospitalar: qualquer pessoa da organização abre um
 pedido de material pelo formulário público (sem login); a equipe do almoxarifado
-(1 coordenador + 4 atendentes, únicos com login) vê a fila no painel, confere item a
-item (com controle de estoque por lote/validade, FEFO), registra entradas (compra ou
-empréstimo/permuta com unidade externa), ajusta saldo por contagem física, e exporta
-relatórios em PDF/Excel — com prévia em tela antes de baixar.
+(1 coordenador + 4 atendentes) vê a fila no painel, confere item a item (com controle de
+estoque por lote/validade, FEFO), registra entradas (compra ou empréstimo/permuta com
+unidade externa), ajusta saldo por contagem física, e exporta relatórios em PDF/Excel —
+com prévia em tela antes de baixar. Um Admin global, separado da equipe operacional,
+configura o que Coordenador e Atendente podem fazer (tela Permissões).
 
 Stack e convenções de pasta inspiradas no projeto irmão `estoque-farmacia-ref/`
 (clonado localmente ao lado desta pasta a partir de `odlaoraugusto/estoque-farmacia`).
@@ -44,33 +45,31 @@ num servidor novo (Docker ou nativo).
 - **Entrada por Compra** (`/entrada-compra`): uma nota fiscal (+ AFM opcional), vários itens.
 - **Empréstimos e Permutas** (`/emprestimos`): registro com unidade externa, nas duas
   direções (emprestar = saída via FEFO, receber/permuta = entrada).
-- **Ajuste de estoque**: correção de saldo por contagem física (exclusivo Coordenador).
+- **Ajuste de estoque**: correção de saldo por contagem física (liberado por padrão ao
+  Coordenador — configurável pelo Admin).
 - **Relatórios** (`/relatorios`): pedidos, estoque, vencimentos, movimentações — prévia em
   tela + exportação PDF/Excel.
+- **Permissões** (`/permissoes`, exclusivo Admin): define o que Coordenador e Atendente
+  podem fazer além do básico.
 
 ## Perfis de acesso
 
 | Perfil | Login? | Pode |
 |---|---|---|
 | Solicitante (qualquer pessoa) | Não | Abrir pedido pelo formulário público |
-| Atendente (4) | Sim | Ver fila, conferir pedidos, registrar entrada/empréstimo, ver relatórios |
-| Coordenador (1) | Sim | Tudo do Atendente + cadastrar itens/setores, ajustar estoque, gerenciar usuários |
+| Atendente (4) | Sim | Ver fila, conferir pedidos, registrar entrada/empréstimo, ver relatórios. Ações extras (ajustar estoque, gerenciar itens/setores, gestão de usuários, relatório de movimentações) dependem do que o Admin liberou na tela Permissões |
+| Coordenador (1) | Sim | Igual ao Atendente + as ações extras liberadas por padrão (configurável, tela Permissões) |
+| Admin (global) | Sim | Superusuário implícito — sempre com tudo liberado. Único que acessa a tela **Permissões**, onde define o que Coordenador e Atendente podem fazer, e o único que pode promover outro login a Admin |
 
-## Ambiente de teste online
+A matriz de permissões (`PUT /permissoes`) nasce com o comportamento histórico do sistema (Coordenador com tudo liberado, Atendente só com o básico) — o Admin ajusta a partir daí, sem precisar mexer em código.
 
-- **Frontend**: https://almoxarifado.169-58-217-209.sslip.io
-- **Backend**: https://almoxarifado-api.169-58-217-209.sslip.io
-- Ambos rodando em Docker na mesma VPS, atrás de Traefik/HTTPS (Let's Encrypt) — ver `docker-compose.vps.yml`.
-- **Banco**: Postgres na mesma VPS (container compartilhado com outros serviços) — o almoxarifado tem **banco e usuário próprios**, isolados, nunca exposto à internet (só acessível pela rede Docker interna).
-- **Código**: https://github.com/odlaoraugusto/Almoxarifado (público — nome real da instituição só em `.env`, nunca commitado)
+## Deploy
 
-`render.yaml` continua no repo como caminho alternativo de deploy (Render + Neon), não usado atualmente.
+- **[`docs/05_INSTALACAO_SERVIDOR_LOCAL.md`](docs/05_INSTALACAO_SERVIDOR_LOCAL.md)** — guia completo do zero num computador novo, cobrindo Docker e instalação nativa, incluindo como importar o catálogo de itens de uma planilha Excel/CSV existente (`backend/scripts/importar_itens_planilha.py` + modelo em `docs/modelo_importacao_itens.xlsx`) em vez de cadastrar item por item.
+- **[`docs/GUIA_IMPLANTACAO_SERVIDOR.md`](docs/GUIA_IMPLANTACAO_SERVIDOR.md)** — instalação nativa/NSSM num servidor Windows que já roda outros apps (portas configuráveis, convivendo com os demais serviços).
+- `render.yaml` continua no repo como caminho alternativo de deploy (Render + Neon), não usado atualmente.
 
-Credenciais iniciais (seed): login `coordenador` / `atendente1`..`atendente4`, senha temporária `Almox@2026` — troca obrigatória no primeiro acesso.
-
-## Instalação em servidor local (produção)
-
-Ver **[`docs/05_INSTALACAO_SERVIDOR_LOCAL.md`](docs/05_INSTALACAO_SERVIDOR_LOCAL.md)** — guia completo do zero num computador novo, cobrindo Docker e instalação nativa (sem Docker), incluindo como importar o catálogo de itens de uma planilha Excel/CSV existente (`backend/scripts/importar_itens_planilha.py` + modelo em `docs/modelo_importacao_itens.xlsx`) em vez de cadastrar item por item.
+Credenciais iniciais (seed): login `coordenador` / `atendente1`..`atendente4`, senha temporária `Almox@2026`; login `admin` (seed separado, `scripts/seed_admin.py`), senha temporária `Admin@2026` — troca obrigatória no primeiro acesso de todos.
 
 ## Status
 

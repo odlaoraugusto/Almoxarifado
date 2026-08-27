@@ -3,10 +3,10 @@ from datetime import date
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import exigir_perfis, get_current_user
+from app.api.deps import exigir_permissao, get_current_user
 from app.api.exportacao_utils import exportar_relatorio
 from app.database.session import get_db
-from app.models.enums import PerfilEnum, StatusPedidoEnum, TipoMovimentacaoEnum
+from app.models.enums import StatusPedidoEnum, TipoMovimentacaoEnum
 from app.schemas.exportacao import FormatoExportacao
 from app.schemas.relatorio import (
     RelatorioEstoqueOut,
@@ -27,10 +27,11 @@ router = APIRouter(prefix="/relatorios", tags=["Relatórios"])
 
 service = RelatorioService()
 
-# Trilha de auditoria completa: só Coordenador (matriz de permissões,
-# docs/00_PROJETO_ALMOXARIFADO.md seção 3.3). Os demais relatórios são
-# operacionais — Atendente e Coordenador têm acesso igual.
-_PODE_VER_AUDITORIA = exigir_perfis(PerfilEnum.coordenador)
+# Trilha de auditoria completa — controlada pela matriz de permissões
+# (tela /permissoes, exclusiva do Admin — app/api/deps.py::exigir_permissao).
+# Os demais relatórios são operacionais — Atendente e Coordenador têm
+# acesso igual.
+_PODE_VER_AUDITORIA = exigir_permissao("relatorio_movimentacoes")
 
 
 @router.get("/pedidos", response_model=RelatorioPedidosOut)

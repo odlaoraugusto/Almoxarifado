@@ -8,6 +8,7 @@ from app.api.routes.emprestimos import router as emprestimos_router
 from app.api.routes.itens import router as itens_router
 from app.api.routes.lotes import router as lotes_router
 from app.api.routes.pedidos import router as pedidos_router
+from app.api.routes.permissoes import router as permissoes_router
 from app.api.routes.relatorios import router as relatorios_router
 from app.api.routes.setores import router as setores_router
 from app.api.routes.usuarios import router as usuarios_router
@@ -46,6 +47,7 @@ app.include_router(pedidos_router)
 app.include_router(emprestimos_router)
 app.include_router(ajustes_router)
 app.include_router(relatorios_router)
+app.include_router(permissoes_router)
 
 
 @app.get("/")

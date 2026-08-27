@@ -10,8 +10,8 @@ import type { Setor } from '../types';
  * Coordenador. Sem responsável fixo/centro de custo, só nome + ativo.
  * Alimenta o `<select>` do formulário público de pedido. */
 export function SetoresPage() {
-  const { usuario, token } = useAuth();
-  const permissoes = permissoesDe(usuario);
+  const { usuario, matrizPermissoes, token } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
 
   if (!permissoes.gerenciarSetores) {
     return (

@@ -1,29 +1,36 @@
-import type { UsuarioMe } from '../types';
+import type { PermissaoPerfil, UsuarioMe } from '../types';
 
-/** Espelha a matriz de permissões do doc (seção 3.3) — o frontend só
- * reage a ela para decidir o que mostrar/esconder. Conferir pedido,
- * registrar entrada e ver estoque/relatório de saídas são liberados a
- * qualquer perfil autenticado; as 4 ações "administrativas" abaixo são
- * exclusivas do Coordenador. */
-export function permissoesDe(usuario: UsuarioMe | null) {
+/** Espelha a matriz configurável de `/permissoes` (tela exclusiva do
+ * Admin) — o frontend só reage a ela pra decidir o que mostrar/esconder.
+ * Conferir pedido, registrar entrada e ver estoque/relatório de pedidos
+ * são liberados a qualquer perfil autenticado; as 5 ações abaixo
+ * dependem do que o Admin configurou para Coordenador/Atendente. O
+ * Admin em si é superusuário implícito — não tem linha na matriz,
+ * sempre vê tudo liberado, e é o único que enxerga a tela Permissões. */
+export function permissoesDe(usuario: UsuarioMe | null, matriz: PermissaoPerfil[] | null) {
   const perfil = usuario?.perfil;
-  const ehCoordenador = perfil === 'coordenador';
+  const ehAdmin = perfil === 'admin';
+  const linha = !ehAdmin && perfil ? (matriz?.find((p) => p.perfil === perfil) ?? null) : null;
 
   return {
     // Ajuste de estoque fora do fluxo normal (divergência de contagem).
-    ajustarEstoque: ehCoordenador,
+    ajustarEstoque: ehAdmin || linha?.ajustar_estoque === true,
 
     // Cadastro/edição de itens do catálogo.
-    gerenciarItens: ehCoordenador,
+    gerenciarItens: ehAdmin || linha?.gerenciar_itens === true,
 
     // Cadastro de setores solicitantes.
-    gerenciarSetores: ehCoordenador,
+    gerenciarSetores: ehAdmin || linha?.gerenciar_setores === true,
 
-    // Gestão de usuários (os 5 logins do almoxarifado).
-    gestaoUsuarios: ehCoordenador,
+    // Gestão de usuários (não inclui promover alguém a Admin — isso é
+    // exclusivo do próprio Admin, sempre, independente desta matriz).
+    gestaoUsuarios: ehAdmin || linha?.gestao_usuarios === true,
 
     // Relatório de movimentações / trilha de auditoria completa.
-    relatorioMovimentacoes: ehCoordenador,
+    relatorioMovimentacoes: ehAdmin || linha?.relatorio_movimentacoes === true,
+
+    // Tela /permissoes — exclusiva do Admin, nunca configurável.
+    gerenciarPermissoes: ehAdmin,
   };
 }
 

@@ -5,8 +5,13 @@ import enum
 
 
 class PerfilEnum(str, enum.Enum):
+    """`admin` é global e superusuário implícito — não entra na matriz
+    configurável de `permissoes_perfil` (ver `app/api/deps.py::exigir_permissao`
+    e `app/models/permissao_perfil.py`), sempre passa em qualquer checagem."""
+
     coordenador = "coordenador"
     atendente = "atendente"
+    admin = "admin"
 
 
 class OrigemEnum(str, enum.Enum):

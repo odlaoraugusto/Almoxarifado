@@ -17,8 +17,8 @@ const FORM_ITEM_VAZIO = { codigo: '', nome: '', apresentacao: '', categoria: 'ma
  * item e Ajuste de estoque continuam exclusivos do Coordenador (matriz
  * da seção 3.3 do doc). */
 export function EstoquePage() {
-  const { usuario, token } = useAuth();
-  const permissoes = permissoesDe(usuario);
+  const { usuario, matrizPermissoes, token } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
 
   const [itens, setItens] = useState<ItemOut[]>([]);
   const [lotes, setLotes] = useState<LoteOut[]>([]);

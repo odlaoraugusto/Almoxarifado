@@ -46,6 +46,7 @@ export function nivelValidade(dias: number): NivelValidade {
 const PERFIL_LABEL: Record<string, string> = {
   coordenador: 'Coordenador',
   atendente: 'Atendente',
+  admin: 'Admin',
 };
 export function labelPerfil(perfil: string): string {
   return PERFIL_LABEL[perfil] ?? perfil;

@@ -9,7 +9,7 @@
 // também no README. Ajustar aqui se o backend (agente almox-backend)
 // expuser nomes diferentes.
 
-export type Perfil = 'coordenador' | 'atendente';
+export type Perfil = 'coordenador' | 'atendente' | 'admin';
 
 export type StatusPedido = 'pendente' | 'parcial' | 'executado';
 
@@ -40,6 +40,18 @@ export interface UsuarioOut {
   perfil: Perfil;
   ativo: boolean;
   deve_trocar_senha: boolean;
+}
+
+/** Uma linha da matriz configurável de `/permissoes` — só existe pra
+ * `coordenador`/`atendente` (o Admin é superusuário implícito, nunca
+ * tem linha própria). Ver `lib/permissoes.ts`. */
+export interface PermissaoPerfil {
+  perfil: Perfil;
+  ajustar_estoque: boolean;
+  gerenciar_itens: boolean;
+  gerenciar_setores: boolean;
+  gestao_usuarios: boolean;
+  relatorio_movimentacoes: boolean;
 }
 
 export interface Setor {

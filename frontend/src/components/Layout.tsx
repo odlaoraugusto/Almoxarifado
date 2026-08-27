@@ -9,8 +9,8 @@ import { HOSPITAL, ORGANIZACAO } from '../lib/instituicao';
  * Itens de menu sem permissão somem da lista (não aparecem
  * desabilitados). */
 export function Layout() {
-  const { usuario, sair } = useAuth();
-  const permissoes = permissoesDe(usuario);
+  const { usuario, matrizPermissoes, sair } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
 
   return (
     <div className="shell">
@@ -78,6 +78,12 @@ export function Layout() {
               <NavLink to="/usuarios" className="nav-btn">
                 <span className="ic">⚉</span>
                 <span className="lbl">Usuários</span>
+              </NavLink>
+            )}
+            {permissoes.gerenciarPermissoes && (
+              <NavLink to="/permissoes" className="nav-btn">
+                <span className="ic">🛡</span>
+                <span className="lbl">Permissões</span>
               </NavLink>
             )}
           </nav>

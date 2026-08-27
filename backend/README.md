@@ -71,6 +71,18 @@ forçar a troca (`POST /auth/trocar-senha`) antes de liberar o resto do
 painel. Nomes de exemplo genéricos ("Nome do Coordenador" etc.) — troque
 depois via `PUT /usuarios/{id}`.
 
+### Usuário Admin (global)
+
+```bash
+python scripts/seed_admin.py
+```
+
+Cria o login `admin` (perfil `admin`), senha temporária **`Admin@2026`**.
+Separado de `seed_usuarios.py` de propósito — não é um dos 5 logins
+operacionais, é a conta que gerencia a matriz de permissões pela tela
+`/permissoes` (ver `app/api/deps.py::exigir_permissao`). Idempotente —
+não mexe em nada se o login já existir.
+
 ### Setores iniciais (opcional, mas recomendado)
 
 ```bash
