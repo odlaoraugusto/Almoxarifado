@@ -5,7 +5,7 @@ import { api, mensagemErro } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { CATEGORIAS_ITEM, diasAteVencer, formatarData, formatarMoeda, labelCategoriaItem, labelOrigemLote, nivelValidade } from '../lib/formato';
-import type { AjusteCriarPayload, CategoriaItem, ItemCriarPayload, ItemOut, LoteOut } from '../types';
+import type { AjusteCriarPayload, CategoriaItem, ItemCriarPayload, ItemOut, LoteAtualizarPayload, LoteOut } from '../types';
 
 const FORM_ITEM_VAZIO = { codigo: '', nome: '', apresentacao: '', categoria: 'material_medico' as CategoriaItem, estoque_minimo: '0' };
 
@@ -199,6 +199,40 @@ export function EstoquePage() {
       setErro(mensagemErro(err, 'Não foi possível registrar o ajuste.'));
     } finally {
       setSalvandoAjuste(false);
+    }
+  }
+
+  // ---- edição do valor unitário de um lote (correção pontual, gerenciarItens) ----
+  const [loteEditandoValorId, setLoteEditandoValorId] = useState<number | null>(null);
+  const [valorUnitarioEdit, setValorUnitarioEdit] = useState('');
+  const [salvandoValorUnitario, setSalvandoValorUnitario] = useState(false);
+
+  function abrirEdicaoValor(lote: LoteOut) {
+    setLoteEditandoValorId(lote.id);
+    setValorUnitarioEdit(lote.valor_unitario ?? '');
+    setErro(null);
+    setSucesso(null);
+  }
+
+  function cancelarEdicaoValor() {
+    setLoteEditandoValorId(null);
+    setValorUnitarioEdit('');
+  }
+
+  async function salvarValorUnitario(loteId: number) {
+    setErro(null);
+    setSucesso(null);
+    setSalvandoValorUnitario(true);
+    const payload: LoteAtualizarPayload = { valor_unitario: valorUnitarioEdit.trim() || null };
+    try {
+      await api.put(`/lotes/${loteId}`, payload, { token });
+      setSucesso('Valor unitário atualizado.');
+      cancelarEdicaoValor();
+      carregar();
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível atualizar o valor unitário.'));
+    } finally {
+      setSalvandoValorUnitario(false);
     }
   }
 
@@ -511,7 +545,42 @@ export function EstoquePage() {
                       <td className="mono">{lote.numero_lote ?? '—'}</td>
                       <td>{formatarData(lote.data_validade)}</td>
                       <td className="num">{lote.quantidade_atual}</td>
-                      <td className="num">{formatarMoeda(lote.valor_unitario)}</td>
+                      <td className="num">
+                        {loteEditandoValorId === lote.id ? (
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'flex-end' }}>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              className="qtd-input"
+                              style={{ width: 90 }}
+                              autoFocus
+                              value={valorUnitarioEdit}
+                              onChange={(e) => setValorUnitarioEdit(e.target.value)}
+                            />
+                            <button
+                              type="button"
+                              className="btn ghost sm"
+                              disabled={salvandoValorUnitario}
+                              onClick={() => salvarValorUnitario(lote.id)}
+                            >
+                              {salvandoValorUnitario ? '…' : 'Salvar'}
+                            </button>
+                            <button type="button" className="btn ghost sm" onClick={cancelarEdicaoValor}>
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
+                            {formatarMoeda(lote.valor_unitario)}
+                            {permissoes.gerenciarItens && (
+                              <button type="button" className="btn ghost sm" onClick={() => abrirEdicaoValor(lote)}>
+                                Editar
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td>{labelOrigemLote(lote.origem)}</td>
                       <td>
                         {nivel === 'vencido' && <span className="pill danger">venceu há {Math.abs(dias ?? 0)}d</span>}

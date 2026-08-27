@@ -221,6 +221,12 @@ export interface AjusteCriarPayload {
   motivo_ajuste: string;
 }
 
+/** Corpo do `PUT /lotes/{id}` — só corrige o valor unitário (ex.:
+ * entrada lançada sem preço). Nunca mexe em quantidade. */
+export interface LoteAtualizarPayload {
+  valor_unitario: string | null;
+}
+
 export interface MovimentacaoOut {
   id: number;
   tipo: TipoMovimentacao;

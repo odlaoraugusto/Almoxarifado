@@ -23,6 +23,16 @@ class EntradaCreate(BaseModel):
     numero_afm: str | None = None
 
 
+class LoteUpdate(BaseModel):
+    """Correção pontual do valor unitário de um lote já lançado (ex.:
+    entrada registrada sem preço, ou preço digitado errado). Não mexe em
+    `quantidade_atual` — isso só muda via Ajuste/Conferência/Empréstimo,
+    pra manter a trilha de auditoria (`movimentacoes`) sempre batendo com
+    o saldo."""
+
+    valor_unitario: Decimal | None = None
+
+
 class LoteOut(BaseModel):
     id: int
     item_id: int
