@@ -63,6 +63,10 @@ num servidor novo (Docker ou nativo).
 
 A matriz de permissões (`PUT /permissoes`) nasce com o comportamento histórico do sistema (Coordenador com tudo liberado, Atendente só com o básico) — o Admin ajusta a partir daí, sem precisar mexer em código.
 
+## Manual do sistema
+
+Ver **[`docs/MANUAL_DO_SISTEMA.md`](docs/MANUAL_DO_SISTEMA.md)** — manual de uso completo, tela por tela, cobrindo o formulário público e todas as telas do painel (o que cada perfil pode fazer, como conferir um pedido, como funciona a matriz de permissões, etc).
+
 ## Deploy
 
 - **[`docs/05_INSTALACAO_SERVIDOR_LOCAL.md`](docs/05_INSTALACAO_SERVIDOR_LOCAL.md)** — guia completo do zero num computador novo, cobrindo Docker e instalação nativa, incluindo como importar o catálogo de itens de uma planilha Excel/CSV existente (`backend/scripts/importar_itens_planilha.py` + modelo em `docs/modelo_importacao_itens.xlsx`) em vez de cadastrar item por item.
