@@ -162,7 +162,7 @@ export function PedidoPublicoPage() {
       setor_id: Number(setorId),
       responsavel_solicitante: responsavel.trim(),
       observacao: observacao.trim() || undefined,
-      itens: linhas.map((l) => ({ item_id: l.item.id, quantidade_solicitada: l.quantidade })),
+      itens: linhas.map((l) => ({ item_id: l.item.id, quantidade: l.quantidade })),
     };
 
     try {

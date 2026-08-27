@@ -163,9 +163,13 @@ export interface EmprestimoOut {
   itens: EmprestimoItemOut[];
 }
 
+/** Nome do campo é `quantidade` aqui (não `quantidade_solicitada`) —
+ * espelha `PedidoItemCreate` do backend, o schema de ENTRADA. O campo
+ * `quantidade_solicitada` só existe do lado da SAÍDA (`PedidoItemOut`,
+ * depois que o pedido já foi criado). */
 export interface PedidoItemPayload {
   item_id: number;
-  quantidade_solicitada: number;
+  quantidade: number;
 }
 
 /** Corpo do POST público (sem auth) — o "pedido de material" do setor. */
