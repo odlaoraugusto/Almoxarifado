@@ -96,17 +96,31 @@ Neonatal, Maternidade, Centro Cirúrgico, Emergência Obstétrica, Farmácia
 Satélite, Enfermaria Pediátrica) — idempotente, mais podem ser
 adicionados/editados depois pelo Coordenador.
 
-### Catálogo de itens (opcional, via planilha)
+Se a lista real de setores for maior/diferente dessa (ex.: veio de uma
+planilha própria da instituição), use `--setores` no script de
+importação abaixo em vez de editar este seed.
+
+### Catálogo de itens e setores (opcional, via planilha)
 
 ```bash
-python scripts/importar_itens_planilha.py caminho/planilha.xlsx \
+# itens
+python scripts/importar_itens_planilha.py caminho/itens.xlsx \
+    --api-url http://localhost:8000 --login coordenador --senha "..."
+
+# itens + setores (planilhas separadas) numa chamada só
+python scripts/importar_itens_planilha.py caminho/itens.xlsx --setores caminho/setores.xlsx \
+    --api-url http://localhost:8000 --login coordenador --senha "..."
+
+# só setores (sem planilha de itens)
+python scripts/importar_itens_planilha.py --setores caminho/setores.xlsx \
     --api-url http://localhost:8000 --login coordenador --senha "..."
 ```
 
-Alternativa a cadastrar item por item pela tela **Estoque** — lê um
-`.xlsx`/`.csv` e importa via API (nunca acesso direto ao banco),
-idempotente. Colunas obrigatórias/opcionais e categorias aceitas
-documentadas no cabeçalho do script e em
+Alternativa a cadastrar item/setor um por um pelas telas **Estoque** e
+**Setores** — lê `.xlsx`/`.csv` e importa via API (nunca acesso direto
+ao banco), idempotente nos dois casos. A planilha de setores só precisa
+de uma coluna (`nome`); a de itens tem colunas obrigatórias/opcionais e
+categorias aceitas documentadas no cabeçalho do script e em
 `../docs/05_INSTALACAO_SERVIDOR_LOCAL.md` (seção 3); modelo pronto em
 `../docs/modelo_importacao_itens.xlsx`.
 

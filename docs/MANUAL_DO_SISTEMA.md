@@ -19,7 +19,7 @@ incluindo o que cada perfil pode e não pode fazer.
 10. [Usuários](#10-usuários)
 11. [Permissões (Admin)](#11-permissões-admin)
 12. [Relatórios](#12-relatórios)
-13. [Importação de itens por planilha](#13-importação-de-itens-por-planilha)
+13. [Importação de itens e setores por planilha](#13-importação-de-itens-e-setores-por-planilha)
 14. [Perguntas frequentes / mensagens de erro](#14-perguntas-frequentes--mensagens-de-erro)
 
 ---
@@ -193,7 +193,7 @@ Campos do cadastro:
 | Apresentação | Não (ex.: "Caixa c/ 100") |
 | **Fabricante** | Não — dado de identificação do item, não do lote |
 | Categoria | Sim — uma das 4 fixas: Material Médico, EPI, Higienização, Material de Expediente |
-| Estoque mínimo | Sim (pode ser 0) — usado pro alerta de "crítico" |
+| Estoque mínimo | Não (0 se não preenchido) — usado pro alerta de "crítico" |
 
 Um item nunca é apagado de verdade (preserva o histórico de pedidos e
 movimentações que o referenciam) — "excluir" é **Desativar**, que some
@@ -256,6 +256,10 @@ Cadastro simples: nome do setor + ativo/inativo. É a lista que alimenta
 o `<select>` "Setor Solicitante" do formulário público — sem nenhum
 setor cadastrado, essa lista nasce vazia.
 
+Lista grande de setores já pronta numa planilha? O mesmo script de
+importação da seção 13 também importa setores (`--setores`), separado
+da planilha de itens.
+
 ## 10. Usuários
 
 Endereço: `/usuarios`. Só aparece no menu pra quem tem "Gestão de
@@ -303,34 +307,50 @@ baixar) e exportação em **PDF** ou **Excel**:
 | **Vencimentos** | dias considerados (padrão 60) | Lotes vencendo dentro do prazo, agrupados por nível de urgência. |
 | **Movimentações** | tipo (entrada/saída/ajuste), período | Trilha de auditoria completa — toda entrada/saída/ajuste de todo lote, com quem executou. |
 
-## 13. Importação de itens por planilha
+## 13. Importação de itens e setores por planilha
 
-Alternativa a cadastrar item por item pela tela Estoque — útil pra
-carregar um catálogo grande de uma vez (migração de uma planilha antiga,
-por exemplo).
+Alternativa a cadastrar item por item (tela Estoque) ou setor por setor
+(tela Setores) — útil pra carregar uma lista grande de uma vez (migração
+de uma planilha antiga, por exemplo). Itens e setores vêm de planilhas
+**separadas**, cada uma no seu próprio formato, mas o mesmo comando
+importa as duas juntas.
 
 - Script: `backend/scripts/importar_itens_planilha.py`.
-- Modelo pronto, já formatado: `docs/modelo_importacao_itens.xlsx`
+- Modelo pronto (itens), já formatado: `docs/modelo_importacao_itens.xlsx`
   (cabeçalho azul = coluna obrigatória, verde = opcional; comentários
   na célula do cabeçalho explicam cada uma; 4 linhas de exemplo).
 - Roda **sempre via API** (nunca acesso direto ao banco) — respeita as
   mesmas validações do cadastro manual pela tela.
-- **Idempotente** — item cujo código já existir no catálogo é pulado
-  (seguro rodar de novo se a importação parar no meio).
+- **Idempotente nos dois casos** — item cujo código já existir, ou
+  setor cujo nome já existir, é pulado (seguro rodar de novo se a
+  importação parar no meio).
 
-**Colunas obrigatórias**: `codigo`, `nome`, `apresentacao`,
-`categoria` (uma das 4 fixas — aceita a chave ou o rótulo), `estoque_minimo`.
+**Planilha de itens — colunas obrigatórias**: `codigo`, `nome`,
+`apresentacao`, `categoria` (uma das 4 fixas — aceita a chave ou o
+rótulo).
 
-**Colunas opcionais**: `quantidade` (se preenchida, já registra uma
-entrada de estoque — nesse caso `numero_lote`, `data_validade`,
+**Planilha de itens — colunas opcionais**: `estoque_minimo` (0 se vazio
+ou não numérico) e `fabricante` — as duas sem nenhuma relação com
+estoque, viram direto o cadastro do item; `quantidade` (se preenchida,
+já registra uma entrada — nesse caso `numero_lote`, `data_validade`,
 `valor_unitario` e `numero_nota_fiscal` também podem ser preenchidos,
-viram atributos desse lote), e **`fabricante`** — a única opcional que
-não depende de estoque, vira direto o cadastro do item.
+viram atributos desse lote).
+
+**Planilha de setores** — uma coluna só, obrigatória: `nome`.
 
 Uso:
 
 ```bash
-python scripts/importar_itens_planilha.py caminho/planilha.xlsx \
+# itens
+python scripts/importar_itens_planilha.py caminho/itens.xlsx \
+    --api-url http://localhost:8000 --login coordenador --senha "..."
+
+# itens + setores juntos
+python scripts/importar_itens_planilha.py caminho/itens.xlsx --setores caminho/setores.xlsx \
+    --api-url http://localhost:8000 --login coordenador --senha "..."
+
+# só setores
+python scripts/importar_itens_planilha.py --setores caminho/setores.xlsx \
     --api-url http://localhost:8000 --login coordenador --senha "..."
 ```
 

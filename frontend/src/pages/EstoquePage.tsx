@@ -380,15 +380,15 @@ export function EstoquePage() {
             </div>
             <div className="field">
               <label htmlFor="item-min">
-                Estoque mínimo <span className="req">*</span>
+                Estoque mínimo <span className="tag">opcional — 0 se não preenchido</span>
               </label>
               <input
                 id="item-min"
                 type="number"
                 min={0}
+                placeholder="0"
                 value={formItem.estoque_minimo}
                 onChange={(e) => setFormItem((f) => ({ ...f, estoque_minimo: e.target.value }))}
-                required
               />
             </div>
           </div>

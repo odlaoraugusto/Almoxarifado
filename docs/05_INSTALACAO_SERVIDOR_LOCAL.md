@@ -302,13 +302,16 @@ login do coordenador.
 
 ---
 
-## 3. Importar o catálogo de itens por planilha (opcional, mas recomendado)
+## 3. Importar itens e setores por planilha (opcional, mas recomendado)
 
 O seed (`seed_usuarios.py`/`seed_setores.py`) **não cadastra nenhum item**
-de propósito, pra não inventar dado de produção. Cadastrar item por item
-pela tela **Estoque** funciona, mas se você já tem o estoque numa
-planilha (a maioria dos almoxarifados tem), importar tudo de uma vez é
-bem mais rápido.
+de propósito, pra não inventar dado de produção, e o seed de setores
+cria só uma lista genérica de exemplo. Cadastrar item por item pela
+tela **Estoque** (ou setor por setor pela tela **Setores**) funciona,
+mas se você já tem essas listas numa planilha (a maioria dos
+almoxarifados tem), importar tudo de uma vez é bem mais rápido — e as
+duas listas podem vir de planilhas **separadas**, cada uma no seu
+próprio formato.
 
 ### 3.1 — Preencher a planilha
 
@@ -326,7 +329,6 @@ ou deixe, o script pula automaticamente linhas cujo código já existe.
 | `nome` | texto | `Luvas de Procedimento (M)` |
 | `apresentacao` | texto | `Caixa c/ 100` |
 | `categoria` | uma das 4 categorias fixas (ver tabela abaixo) | `Material Médico` |
-| `estoque_minimo` | número inteiro (`0` se ainda não souber) | `20` |
 
 `categoria` aceita a grafia com acento/maiúscula como preferir — o
 script normaliza sozinho:
@@ -345,35 +347,63 @@ saldo 0 e você dá entrada depois pela tela **Entrada por Compra**:
 
 | Coluna | Formato |
 |---|---|
+| `estoque_minimo` | número inteiro — `0` se vazio ou não numérico |
 | `quantidade` | número inteiro — só dispara a criação do lote se preenchida |
 | `numero_lote` | texto, opcional mesmo com quantidade preenchida |
 | `data_validade` | `AAAA-MM-DD` — deixe em branco se o item não vence |
 | `valor_unitario` | número com **ponto** decimal (`3.50`, não `3,50`) |
 | `numero_nota_fiscal` | texto |
-| `fabricante` | texto — única opcional que **não** depende de estoque, vira o cadastro do ITEM (não do lote) |
+| `fabricante` | texto — vira o cadastro do ITEM (não do lote) |
+
+`estoque_minimo` e `fabricante` não têm nenhuma relação com estoque —
+são as duas opcionais que valem preencher mesmo sem informar
+`quantidade`.
 
 Aceita `.xlsx` ou `.csv` — qualquer outra coluna na planilha é ignorada
 (pode manter colunas de controle da sua planilha antiga sem apagar).
 
-### 3.2 — Rodar a importação
+### 3.2 — Planilha de setores (opcional, `--setores`)
+
+Se a lista real de setores solicitantes vier de uma planilha própria
+(separada da de itens), o mesmo script importa os dois numa chamada só
+— formato mínimo, só uma coluna obrigatória:
+
+| Coluna | Formato |
+|---|---|
+| `nome` | texto, único (mesmo nome já cadastrado é pulado) |
+
+Qualquer outra coluna na planilha de setores é ignorada.
+
+### 3.3 — Rodar a importação
 
 ```bash
 cd backend
-python scripts/importar_itens_planilha.py caminho/da/planilha.xlsx \
+
+# só itens
+python scripts/importar_itens_planilha.py caminho/itens.xlsx \
+    --api-url http://SEU_IP_FIXO:8000 --login coordenador --senha "a-senha-do-coordenador"
+
+# itens + setores juntos
+python scripts/importar_itens_planilha.py caminho/itens.xlsx --setores caminho/setores.xlsx \
+    --api-url http://SEU_IP_FIXO:8000 --login coordenador --senha "a-senha-do-coordenador"
+
+# só setores
+python scripts/importar_itens_planilha.py --setores caminho/setores.xlsx \
     --api-url http://SEU_IP_FIXO:8000 --login coordenador --senha "a-senha-do-coordenador"
 ```
 
 (Com Docker, rode de dentro do container:
 `docker compose -f docker-compose.local.yml exec backend python scripts/importar_itens_planilha.py ...`
-— o caminho da planilha precisa estar acessível *dentro* do container,
-então copie o arquivo pra dentro da pasta `backend/` antes, ou monte um
-volume extra.)
+— o caminho das planilhas precisa estar acessível *dentro* do
+container, então copie os arquivos pra dentro da pasta `backend/`
+antes, ou monte um volume extra.)
 
-O script imprime linha a linha o que fez — item criado, item pulado
-(código já existia), ou erro (categoria inválida, número inválido) sem
-travar o resto da importação. **Idempotente**: interrompeu no meio ou
-quer importar um lote novo depois? Roda de novo sem medo, ele nunca
-duplica um `codigo` já cadastrado.
+O script imprime linha a linha o que fez — item/setor criado, pulado
+(já existia), ou erro (categoria inválida, número inválido, nome
+vazio) sem travar o resto da importação. **Idempotente nos dois
+casos**: interrompeu no meio ou quer importar um lote novo depois?
+Roda de novo sem medo, ele nunca duplica um `codigo` de item nem um
+`nome` de setor já cadastrado.
 
 Se a máquina de onde você roda o script tiver antivírus/proxy corporativo
 interceptando HTTPS localmente (sintoma: erro `CERTIFICATE_VERIFY_FAILED`
