@@ -74,6 +74,7 @@ export interface ItemOut extends ItemPublico {
   estoque_minimo: number;
   estoque_atual: number;
   ativo: boolean;
+  fabricante: string | null;
 }
 
 export interface ItemCriarPayload {
@@ -82,6 +83,7 @@ export interface ItemCriarPayload {
   apresentacao?: string;
   categoria: CategoriaItem;
   estoque_minimo: number;
+  fabricante?: string;
 }
 
 export interface LoteOut {

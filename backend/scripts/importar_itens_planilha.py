@@ -48,6 +48,7 @@ depois pela tela "Entrada por Compra"):
 | `data_validade` | `AAAA-MM-DD`, ou data nativa do Excel | opcional — nem todo item vence |
 | `valor_unitario` | número (use ponto, não vírgula, decimal) | opcional |
 | `numero_nota_fiscal` | texto | opcional |
+| `fabricante` | texto | opcional — vira o campo "Fabricante" do cadastro do item, não do lote |
 
 Qualquer outra coluna na planilha é ignorada (pode manter colunas de
 controle interno da sua planilha antiga sem precisar apagar).
@@ -144,6 +145,9 @@ def validar_e_montar_item(registro: dict, numero_linha: int) -> tuple[dict | Non
         "categoria": categoria,
         "estoque_minimo": estoque_minimo,
     }
+    fabricante = registro.get("fabricante")
+    if fabricante not in (None, ""):
+        item_payload["fabricante"] = str(fabricante).strip()
 
     entrada_payload = None
     quantidade_bruta = registro.get("quantidade")

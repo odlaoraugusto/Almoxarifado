@@ -350,6 +350,7 @@ saldo 0 e você dá entrada depois pela tela **Entrada por Compra**:
 | `data_validade` | `AAAA-MM-DD` — deixe em branco se o item não vence |
 | `valor_unitario` | número com **ponto** decimal (`3.50`, não `3,50`) |
 | `numero_nota_fiscal` | texto |
+| `fabricante` | texto — única opcional que **não** depende de estoque, vira o cadastro do ITEM (não do lote) |
 
 Aceita `.xlsx` ou `.csv` — qualquer outra coluna na planilha é ignorada
 (pode manter colunas de controle da sua planilha antiga sem apagar).

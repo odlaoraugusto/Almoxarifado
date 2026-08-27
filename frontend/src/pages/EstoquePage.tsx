@@ -7,7 +7,14 @@ import { Alerta } from '../components/Alerta';
 import { CATEGORIAS_ITEM, diasAteVencer, formatarData, formatarMoeda, labelCategoriaItem, labelOrigemLote, nivelValidade } from '../lib/formato';
 import type { AjusteCriarPayload, CategoriaItem, ItemCriarPayload, ItemOut, LoteAtualizarPayload, LoteOut } from '../types';
 
-const FORM_ITEM_VAZIO = { codigo: '', nome: '', apresentacao: '', categoria: 'material_medico' as CategoriaItem, estoque_minimo: '0' };
+const FORM_ITEM_VAZIO = {
+  codigo: '',
+  nome: '',
+  apresentacao: '',
+  categoria: 'material_medico' as CategoriaItem,
+  estoque_minimo: '0',
+  fabricante: '',
+};
 
 /** Estoque do almoxarifado — catálogo de itens com saldo agregado (Σ
  * lotes), alerta de estoque crítico e vencimento em 4 grupos (vencido,
@@ -108,6 +115,7 @@ export function EstoquePage() {
       apresentacao: item.apresentacao ?? '',
       categoria: item.categoria,
       estoque_minimo: String(item.estoque_minimo),
+      fabricante: item.fabricante ?? '',
     });
   }
   function cancelarEdicaoItem() {
@@ -126,6 +134,7 @@ export function EstoquePage() {
       apresentacao: formItem.apresentacao.trim() || undefined,
       categoria: formItem.categoria,
       estoque_minimo: Number(formItem.estoque_minimo) || 0,
+      fabricante: formItem.fabricante.trim() || undefined,
     };
     try {
       if (editandoItemId == null) {
@@ -341,6 +350,18 @@ export function EstoquePage() {
               />
             </div>
             <div className="field">
+              <label htmlFor="item-fabricante">
+                Fabricante <span className="tag">opcional</span>
+              </label>
+              <input
+                id="item-fabricante"
+                type="text"
+                placeholder="ex.: Johnson & Johnson"
+                value={formItem.fabricante}
+                onChange={(e) => setFormItem((f) => ({ ...f, fabricante: e.target.value }))}
+              />
+            </div>
+            <div className="field">
               <label htmlFor="item-categoria">
                 Categoria <span className="req">*</span>
               </label>
@@ -456,6 +477,7 @@ export function EstoquePage() {
                 <tr>
                   <th>Código</th>
                   <th>Nome</th>
+                  <th>Fabricante</th>
                   <th>Categoria</th>
                   <th className="num">Atual</th>
                   <th className="num">Mínimo</th>
@@ -466,7 +488,7 @@ export function EstoquePage() {
               <tbody>
                 {itensFiltrados.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="vazio-tabela">
+                    <td colSpan={8} className="vazio-tabela">
                       Nenhum item encontrado.
                     </td>
                   </tr>
@@ -480,6 +502,7 @@ export function EstoquePage() {
                         {item.nome}
                         {!item.ativo && <span className="pill muted" style={{ marginLeft: 8 }}>inativo</span>}
                       </td>
+                      <td>{item.fabricante ?? '—'}</td>
                       <td>{labelCategoriaItem(item.categoria)}</td>
                       <td className="num">{item.estoque_atual}</td>
                       <td className="num">{item.estoque_minimo}</td>

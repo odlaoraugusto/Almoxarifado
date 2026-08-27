@@ -25,6 +25,11 @@ class Item(Base):
 
     estoque_minimo = Column(Integer, nullable=False, default=0, server_default="0")
 
+    # Opcional — nem todo item tem um fabricante identificável (ex.
+    # material de expediente genérico), mas o campo precisa existir pra
+    # quem tem (pedido do cliente).
+    fabricante = Column(String(150), nullable=True)
+
     # Não faz parte da lista literal da seção 4 do doc, mas evita exclusão
     # física do cadastro (que quebraria FK de lotes/pedido_itens
     # históricos) — descontinuar um item vira "inativo" em vez de DELETE,

@@ -9,6 +9,7 @@ class ItemCreate(BaseModel):
     apresentacao: str
     categoria: CategoriaItemEnum
     estoque_minimo: int = 0
+    fabricante: str | None = None
 
 
 class ItemUpdate(BaseModel):
@@ -18,6 +19,7 @@ class ItemUpdate(BaseModel):
     categoria: CategoriaItemEnum | None = None
     estoque_minimo: int | None = None
     ativo: bool | None = None
+    fabricante: str | None = None
 
 
 class ItemPublicoOut(BaseModel):
@@ -55,6 +57,7 @@ class ItemOut(BaseModel):
     categoria: CategoriaItemEnum
     estoque_minimo: int
     ativo: bool
+    fabricante: str | None = None
 
     # Calculado (não é coluna do model `Item`): soma de `Lote.quantidade_atual`
     # de todos os lotes deste item — ver `ItemRepository.listar_com_estoque`.

@@ -31,6 +31,7 @@ class ItemService:
             categoria=item.categoria,
             estoque_minimo=item.estoque_minimo,
             ativo=item.ativo,
+            fabricante=item.fabricante,
             estoque_atual=estoque_por_item.get(item.id, 0),
         )
 
