@@ -11,6 +11,12 @@ python-dotenv
 bcrypt
 pyjwt
 
-# Exportação de relatórios (PDF/Excel)
+# Exportação de relatórios (PDF/Excel) — openpyxl também usado para LER
+# planilhas na importação de itens (scripts/importar_itens_planilha.py)
 openpyxl
 reportlab
+
+# Cliente HTTP usado só pelo script de importação de itens (fala com a
+# própria API, nunca acessa o banco direto) — não é dependência do
+# FastAPI em si.
+requests

@@ -15,6 +15,10 @@ código/pacotes). Cobre as duas rotas possíveis:
 Escolha uma das duas — não precisa fazer as duas. Se não tiver certeza,
 use a Rota A.
 
+Depois de instalado, a **seção 3** mostra como importar o catálogo de
+itens de uma planilha Excel/CSV existente, em vez de cadastrar item por
+item pela tela.
+
 ## 0. Checklist rápido (antes de considerar "pronto")
 
 - [ ] PostgreSQL com senha forte gerada na hora (nunca a de um `.env.example`)
@@ -24,6 +28,7 @@ use a Rota A.
 - [ ] Frontend buildado apontando para o **IP do servidor**, nunca `localhost`
 - [ ] Os 5 usuários reais cadastrados (coordenador + 4 atendentes) — **não** os
       de teste do seed, ou pelo menos com as senhas temporárias já trocadas
+- [ ] Catálogo de itens real cadastrado (planilha — seção 3 — ou manual pela tela)
 - [ ] Firewall liberando as portas só para a rede interna, nunca para a internet
 - [ ] Backup (`pg_dump`) agendado e testado pelo menos uma vez com restauração
 
@@ -145,7 +150,7 @@ mudado a porta do frontend — não precisa digitar `:80`, só as portas
 diferentes de 80) — deve aparecer o formulário público. Em
 `http://SEU_IP_FIXO/login` (mesma porta), testar o login do coordenador.
 
-Pule para a [seção 4](#4-rede-e-firewall).
+Pule para a [seção 5](#5-rede-e-firewall).
 
 ---
 
@@ -297,22 +302,98 @@ login do coordenador.
 
 ---
 
-## 3. Primeiro acesso
+## 3. Importar o catálogo de itens por planilha (opcional, mas recomendado)
+
+O seed (`seed_usuarios.py`/`seed_setores.py`) **não cadastra nenhum item**
+de propósito, pra não inventar dado de produção. Cadastrar item por item
+pela tela **Estoque** funciona, mas se você já tem o estoque numa
+planilha (a maioria dos almoxarifados tem), importar tudo de uma vez é
+bem mais rápido.
+
+### 3.1 — Preencher a planilha
+
+Use o modelo pronto: **[`docs/modelo_importacao_itens.xlsx`](modelo_importacao_itens.xlsx)**
+— tem a aba **Itens** (onde você preenche) e a aba **Instruções** (com
+todos os detalhes abaixo, pra quem for preencher não precisar deste
+guia). Linhas de exemplo (fundo amarelo) mostram o formato — apague-as
+ou deixe, o script pula automaticamente linhas cujo código já existe.
+
+**Colunas obrigatórias** (cabeçalho azul na planilha):
+
+| Coluna | Formato | Exemplo |
+|---|---|---|
+| `codigo` | texto, único no catálogo | `MAT001` |
+| `nome` | texto | `Luvas de Procedimento (M)` |
+| `apresentacao` | texto | `Caixa c/ 100` |
+| `categoria` | uma das 4 categorias fixas (ver tabela abaixo) | `Material Médico` |
+| `estoque_minimo` | número inteiro (`0` se ainda não souber) | `20` |
+
+`categoria` aceita a grafia com acento/maiúscula como preferir — o
+script normaliza sozinho:
+
+| Categoria | Grafias aceitas |
+|---|---|
+| Material Médico | `Material Médico`, `material_medico`, `Mat. Med.` |
+| EPI | `EPI`, `EPI/SIAST` |
+| Higienização | `Higienização`, `Higienizacao` |
+| Material de Expediente | `Material de Expediente`, `Expediente` |
+
+**Colunas opcionais** (cabeçalho verde) — preencha `quantidade` só se
+esse item já tem estoque físico pra registrar junto do cadastro (cria
+uma entrada automaticamente); deixando em branco, o item nasce com
+saldo 0 e você dá entrada depois pela tela **Entrada por Compra**:
+
+| Coluna | Formato |
+|---|---|
+| `quantidade` | número inteiro — só dispara a criação do lote se preenchida |
+| `numero_lote` | texto, opcional mesmo com quantidade preenchida |
+| `data_validade` | `AAAA-MM-DD` — deixe em branco se o item não vence |
+| `valor_unitario` | número com **ponto** decimal (`3.50`, não `3,50`) |
+| `numero_nota_fiscal` | texto |
+
+Aceita `.xlsx` ou `.csv` — qualquer outra coluna na planilha é ignorada
+(pode manter colunas de controle da sua planilha antiga sem apagar).
+
+### 3.2 — Rodar a importação
+
+```bash
+cd backend
+python scripts/importar_itens_planilha.py caminho/da/planilha.xlsx \
+    --api-url http://SEU_IP_FIXO:8000 --login coordenador --senha "a-senha-do-coordenador"
+```
+
+(Com Docker, rode de dentro do container:
+`docker compose -f docker-compose.local.yml exec backend python scripts/importar_itens_planilha.py ...`
+— o caminho da planilha precisa estar acessível *dentro* do container,
+então copie o arquivo pra dentro da pasta `backend/` antes, ou monte um
+volume extra.)
+
+O script imprime linha a linha o que fez — item criado, item pulado
+(código já existia), ou erro (categoria inválida, número inválido) sem
+travar o resto da importação. **Idempotente**: interrompeu no meio ou
+quer importar um lote novo depois? Roda de novo sem medo, ele nunca
+duplica um `codigo` já cadastrado.
+
+Se a máquina de onde você roda o script tiver antivírus/proxy corporativo
+interceptando HTTPS localmente (sintoma: erro `CERTIFICATE_VERIFY_FAILED`
+mesmo com a URL certa), adicione `--no-verify-ssl` — só nesse cenário
+específico, nunca importando pela internet pra um servidor desconhecido.
+
+## 4. Primeiro acesso
 
 1. Logar como `coordenador` / `Almox@2026` — o sistema força a troca de
    senha no primeiro acesso.
 2. Repetir o login/troca de senha para `atendente1`..`atendente4`, ou
    trocar os logins/nomes pela tela **Usuários** para os nomes reais da
    equipe (exclusivo do Coordenador).
-3. Cadastrar o catálogo de itens de verdade em **Estoque** — o seed não
-   cria nenhum item (só setores e usuários), de propósito, para não
-   inventar dado de produção.
+3. Se ainda não importou o catálogo pela planilha (seção 3), cadastrar
+   os itens pela tela **Estoque**.
 4. Testar os fluxos principais uma vez com dado real: um pedido pelo
    formulário público, uma conferência (inclusive uma parcial, de
    propósito, para confirmar que o status calcula certo), uma Entrada por
    Compra, um Ajuste de estoque.
 
-## 4. Rede e firewall
+## 5. Rede e firewall
 
 Liberar no firewall do servidor, **só para a sub-rede interna**, nunca
 para a internet:
@@ -323,7 +404,7 @@ para a internet:
   (fica só na rede interna dos containers) nem na instalação nativa (só o
   backend, na mesma máquina, fala com ele).
 
-## 5. Backup
+## 6. Backup
 
 ```bash
 pg_dump -Fc -U almoxarifado almoxarifado > /backup/almoxarifado_$(date +%F).dump
@@ -352,7 +433,7 @@ pg_restore -d almoxarifado_teste -U postgres /backup/almoxarifado_2026-08-27.dum
 
 Um backup nunca testado é uma suposição, não uma garantia.
 
-## 6. Atualizar depois de uma mudança no código
+## 7. Atualizar depois de uma mudança no código
 
 **Docker**:
 
@@ -376,7 +457,7 @@ cd ../frontend && npm install && npm run build
 # recopiar dist/ para onde o nginx/IIS está servindo, se o caminho não for direto
 ```
 
-## 7. Checklist final
+## 8. Checklist final
 
 Repita o checklist da seção 0 depois de tudo no ar — em especial, teste o
 backup com uma restauração de verdade antes de considerar a instalação

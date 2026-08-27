@@ -70,7 +70,7 @@ Credenciais iniciais (seed): login `coordenador` / `atendente1`..`atendente4`, s
 
 ## Instalação em servidor local (produção)
 
-Ver **[`docs/05_INSTALACAO_SERVIDOR_LOCAL.md`](docs/05_INSTALACAO_SERVIDOR_LOCAL.md)** — guia completo do zero num computador novo, cobrindo Docker e instalação nativa (sem Docker).
+Ver **[`docs/05_INSTALACAO_SERVIDOR_LOCAL.md`](docs/05_INSTALACAO_SERVIDOR_LOCAL.md)** — guia completo do zero num computador novo, cobrindo Docker e instalação nativa (sem Docker), incluindo como importar o catálogo de itens de uma planilha Excel/CSV existente (`backend/scripts/importar_itens_planilha.py` + modelo em `docs/modelo_importacao_itens.xlsx`) em vez de cadastrar item por item.
 
 ## Status
 

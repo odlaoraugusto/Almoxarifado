@@ -84,6 +84,20 @@ Neonatal, Maternidade, Centro Cirúrgico, Emergência Obstétrica, Farmácia
 Satélite, Enfermaria Pediátrica) — idempotente, mais podem ser
 adicionados/editados depois pelo Coordenador.
 
+### Catálogo de itens (opcional, via planilha)
+
+```bash
+python scripts/importar_itens_planilha.py caminho/planilha.xlsx \
+    --api-url http://localhost:8000 --login coordenador --senha "..."
+```
+
+Alternativa a cadastrar item por item pela tela **Estoque** — lê um
+`.xlsx`/`.csv` e importa via API (nunca acesso direto ao banco),
+idempotente. Colunas obrigatórias/opcionais e categorias aceitas
+documentadas no cabeçalho do script e em
+`../docs/05_INSTALACAO_SERVIDOR_LOCAL.md` (seção 3); modelo pronto em
+`../docs/modelo_importacao_itens.xlsx`.
+
 ### Subindo a API
 
 ```bash
