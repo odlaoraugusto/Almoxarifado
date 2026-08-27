@@ -84,13 +84,25 @@ nem `frontend/`) com os valores reais:
 
 | Variável | Como preencher |
 |---|---|
+| `BACKEND_PORT` | porta do host pro backend — só mude se `8000` já estiver em uso por outro serviço nesta máquina (default `8000` se deixar em branco) |
+| `FRONTEND_PORT` | porta do host pro frontend — só mude se `80` já estiver em uso (default `80`) |
 | `POSTGRES_PASSWORD` | gerar uma senha forte, ex.: `python -c "import secrets; print(secrets.token_urlsafe(24))"` (ou `openssl rand -base64 24`) |
 | `DATABASE_URL` | mesma senha do `POSTGRES_PASSWORD`, colada dentro da URL (ver comentário no próprio arquivo) |
 | `JWT_SECRET_KEY` | gerar novo — `python -c "import secrets; print(secrets.token_hex(32))"` |
 | `HOSPITAL_NOME` / `HOSPITAL_ORGANIZACAO` | nome real da instituição |
-| `CORS_ORIGINS` | `http://SEU_IP_FIXO` (o IP da seção 1, **sem** `localhost`) |
-| `VITE_API_URL` | `http://SEU_IP_FIXO:8000` |
+| `CORS_ORIGINS` | `http://SEU_IP_FIXO` + `:FRONTEND_PORT` se não for `80` (o IP da seção 1, **sem** `localhost`) |
+| `VITE_API_URL` | `http://SEU_IP_FIXO:BACKEND_PORT` (a porta do **backend**, mesmo valor de `BACKEND_PORT`) |
 | `VITE_ORGANIZACAO` / `VITE_HOSPITAL_NOME` / `VITE_HOSPITAL_SIGLA` | mesmos nomes reais, exibidos na tela |
+
+**Exemplo** — se já houver outro serviço usando `8000`/`80` nesta máquina
+e você optar por `8001`/`8080` (IP fixo `192.168.10.50`, por exemplo):
+
+```
+BACKEND_PORT=8001
+FRONTEND_PORT=8080
+CORS_ORIGINS=http://192.168.10.50:8080
+VITE_API_URL=http://192.168.10.50:8001
+```
 
 **Erro mais comum nesta etapa**: deixar `VITE_API_URL`/`CORS_ORIGINS` como
 `localhost`. Funciona perfeito testando na própria máquina do servidor,
@@ -128,9 +140,10 @@ instalação nova.
 ### A.5 — Testar
 
 De qualquer computador **da mesma rede**, abrir o navegador em
-`http://SEU_IP_FIXO` (porta 80, não precisa digitar a porta) — deve
-aparecer o formulário público. Em `http://SEU_IP_FIXO/login`, testar o
-login do coordenador.
+`http://SEU_IP_FIXO` (ou `http://SEU_IP_FIXO:FRONTEND_PORT`, se tiver
+mudado a porta do frontend — não precisa digitar `:80`, só as portas
+diferentes de 80) — deve aparecer o formulário público. Em
+`http://SEU_IP_FIXO/login` (mesma porta), testar o login do coordenador.
 
 Pule para a [seção 4](#4-rede-e-firewall).
 
@@ -303,8 +316,9 @@ login do coordenador.
 
 Liberar no firewall do servidor, **só para a sub-rede interna**, nunca
 para a internet:
-- Porta 8000 (backend)
-- Porta 80 (frontend)
+- Porta do backend (`8000` por padrão, ou o valor que você colocou em
+  `BACKEND_PORT` no `.env`, se mudou por conflito com outro app)
+- Porta do frontend (`80` por padrão, ou `FRONTEND_PORT`)
 - Porta 5432 (Postgres) **não precisa ficar liberada** — nem no Docker
   (fica só na rede interna dos containers) nem na instalação nativa (só o
   backend, na mesma máquina, fala com ele).
