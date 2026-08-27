@@ -11,10 +11,19 @@ class PedidoItemRepository:
     def get_by_id_for_update(self, db: Session, pedido_item_id: int) -> PedidoItem | None:
         """`SELECT ... FOR UPDATE` — trava a linha até o fim da transação,
         evitando que dois atendentes confiram o mesmo item do pedido ao
-        mesmo tempo (ex.: dando baixa em estoque duas vezes)."""
+        mesmo tempo (ex.: dando baixa em estoque duas vezes).
+
+        `.populate_existing()` obrigatório — mesmo motivo documentado em
+        `LoteRepository.get_by_id_for_update`: sem ele, um `PedidoItem`
+        já carregado na identity map da sessão (ex.: via
+        `pedido.itens` eager-loaded em `PedidoService.executar_direto`
+        antes deste método ser chamado) faz o SQLAlchemy devolver o
+        objeto em cache em vez de reler o valor travado, mesmo com o
+        lock do Postgres correto."""
         return (
             db.query(PedidoItem)
             .filter(PedidoItem.id == pedido_item_id)
+            .populate_existing()
             .with_for_update()
             .first()
         )

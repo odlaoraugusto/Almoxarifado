@@ -21,8 +21,27 @@ class LoteRepository:
     def get_by_id_for_update(self, db: Session, lote_id: int) -> Lote | None:
         """Bloqueia a linha do lote até o fim da transação (`SELECT ...
         FOR UPDATE`) — evita duas conferências/ajustes decrementando o
-        mesmo lote ao mesmo tempo."""
-        return db.query(Lote).filter(Lote.id == lote_id).with_for_update().first()
+        mesmo lote ao mesmo tempo.
+
+        `.populate_existing()` é obrigatório aqui: sem ele, se este
+        `Lote` já estava carregado na identity map da sessão (ex.:
+        `listar_fefo` rodou segundos antes, sem lock, no mesmo request),
+        o SQLAlchemy devolve o objeto Python em cache — SEM reler os
+        valores da linha que o `FOR UPDATE` acabou de travar/buscar —
+        mesmo a trava do Postgres estando correta. Resultado: duas
+        requisições concorrentes na mesma linha calculam o decremento em
+        cima do MESMO valor "stale", e uma sobrescreve a baixa da outra
+        (lost update), apesar do lock a nível de banco ter funcionado
+        certinho. Achado real rodando teste de carga com concorrência de
+        verdade (não aparece com requisições sequenciais) — ver
+        docs/00_PROJETO_ALMOXARIFADO.md ou o histórico do repositório."""
+        return (
+            db.query(Lote)
+            .filter(Lote.id == lote_id)
+            .populate_existing()
+            .with_for_update()
+            .first()
+        )
 
     def listar_fefo(self, db: Session, item_id: int) -> list[Lote]:
         """Lotes com saldo > 0 do item, ordenados FEFO (First Expire,

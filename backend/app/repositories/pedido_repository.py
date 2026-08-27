@@ -20,10 +20,20 @@ class PedidoRepository:
 
     def get_by_id_for_update(self, db: Session, pedido_id: int) -> Pedido | None:
         """Trava a linha do pedido enquanto sua finalização (`status`) é
-        recalculada em `PedidoService.conferir_item` — evita que duas
-        conferências simultâneas do último item pendente marquem
-        `executado` em duplicidade/condição de corrida."""
-        return db.query(Pedido).filter(Pedido.id == pedido_id).with_for_update().first()
+        recalculada em `PedidoService._atualizar_status_pedido` — evita
+        que duas conferências simultâneas do último item pendente
+        marquem `executado`/`parcial` em duplicidade/condição de corrida.
+
+        `.populate_existing()` obrigatório — mesmo motivo documentado em
+        `LoteRepository.get_by_id_for_update` (identity map devolvendo
+        objeto em cache em vez do valor recém-travado)."""
+        return (
+            db.query(Pedido)
+            .filter(Pedido.id == pedido_id)
+            .populate_existing()
+            .with_for_update()
+            .first()
+        )
 
     def salvar(self, db: Session, pedido: Pedido) -> Pedido:
         db.commit()
