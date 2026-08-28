@@ -115,11 +115,25 @@ class PedidoService:
                 detail="Quantidade entregue não pode ser maior que a quantidade solicitada.",
             )
 
-        item = self.item_repository.get_by_id(db, pedido_item.item_id_solicitado)
+        # item_id_entregue omitido (ou igual ao solicitado) = entrega
+        # normal. Preenchido com outro item = substituição (ex.: pediram
+        # seringa com rosca, só tem com bico) — qualquer perfil
+        # autenticado pode fazer, mesma regra de quem já confere
+        # normalmente; só exige o motivo.
+        item_id_final = dados.item_id_entregue or pedido_item.item_id_solicitado
+        substituindo = item_id_final != pedido_item.item_id_solicitado
+
+        if substituindo and not (dados.motivo_substituicao and dados.motivo_substituicao.strip()):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Motivo da substituição é obrigatório ao entregar um item diferente do solicitado.",
+            )
+
+        item = self.item_repository.get_by_id(db, item_id_final)
         if item is None or not item.ativo:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Item id={pedido_item.item_id_solicitado} não encontrado ou inativo.",
+                detail=f"Item id={item_id_final} não encontrado ou inativo.",
             )
 
         # quantidade_entregue=0 registra "não atendido" (item indisponível)
@@ -137,6 +151,7 @@ class PedidoService:
 
         pedido_item.item_id_entregue = item.id
         pedido_item.quantidade_entregue = dados.quantidade_entregue
+        pedido_item.motivo_substituicao = dados.motivo_substituicao.strip() if substituindo else None
         self.pedido_item_repository.salvar(db, pedido_item)
 
         self._atualizar_status_pedido(db, usuario, pedido_id)

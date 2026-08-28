@@ -75,6 +75,9 @@ export interface ItemOut extends ItemPublico {
   estoque_atual: number;
   ativo: boolean;
   fabricante: string | null;
+  /** Preço de referência do ITEM no catálogo — opcional, independente
+   * do valor unitário de cada lote (que varia por compra). */
+  valor_unitario: string | null;
 }
 
 export interface ItemCriarPayload {
@@ -84,6 +87,7 @@ export interface ItemCriarPayload {
   categoria: CategoriaItem;
   estoque_minimo: number;
   fabricante?: string;
+  valor_unitario?: string;
 }
 
 export interface LoteOut {
@@ -208,10 +212,15 @@ export interface PedidoOut {
   itens: PedidoItemOut[];
 }
 
-/** Corpo do PATCH de conferência de UM item do pedido — o item entregue
- * é sempre o solicitado (sem troca de item nesta tela). */
+/** Corpo do PATCH de conferência de UM item do pedido.
+ * `item_id_entregue` omitido = entrega normal (mesmo item solicitado).
+ * Preenchido com outro item do catálogo = substituição — nesse caso
+ * `motivo_substituicao` é obrigatório (validado no backend). Qualquer
+ * perfil autenticado pode substituir, mesma regra de quem já confere. */
 export interface ConferirItemPayload {
   quantidade_entregue: number;
+  item_id_entregue?: number;
+  motivo_substituicao?: string;
 }
 
 /** O backend calcula o delta a partir de `quantidade_nova` contra o

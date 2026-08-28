@@ -2,12 +2,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api, baixarArquivo, mensagemErro } from '../lib/api';
 import { Alerta } from '../components/Alerta';
+import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
 import { formatarDataHora, labelStatusPedido, pillStatusPedido } from '../lib/formato';
-import type { ConferirItemPayload, PedidoOut, Setor, StatusPedido } from '../types';
+import type { ConferirItemPayload, ItemOut, PedidoOut, Setor, StatusPedido } from '../types';
 
 interface EdicaoItem {
   quantidade: string;
   liberar: boolean;
+  /** Substituição — qualquer perfil pode entregar um item diferente do
+   * solicitado quando o pedido é o que tem (ex.: pediram seringa com
+   * rosca, só tem com bico). `motivoSubstituicao` é obrigatório quando
+   * `itemSubstituto` está preenchido. */
+  substituindo: boolean;
+  itemSubstituto: ItemOut | null;
+  buscaSubstituto: string;
+  motivoSubstituicao: string;
 }
 
 type AbaStatus = 'todos' | StatusPedido;
@@ -61,6 +70,7 @@ export function PainelPage() {
   const { token } = useAuth();
 
   const [setores, setSetores] = useState<Setor[]>([]);
+  const [catalogo, setCatalogo] = useState<ItemOut[]>([]);
   const [pedidos, setPedidos] = useState<PedidoOut[]>([]);
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [erroLista, setErroLista] = useState<string | null>(null);
@@ -78,6 +88,9 @@ export function PainelPage() {
   useEffect(() => {
     if (!token) return;
     api.get<Setor[]>('/setores', { token }).then(setSetores).catch(() => {});
+    // Catálogo completo — só usado pra buscar um item substituto na
+    // conferência (ver EdicaoItem.itemSubstituto).
+    api.get<ItemOut[]>('/itens', { token }).then(setCatalogo).catch(() => {});
   }, [token]);
 
   const carregarLista = useCallback(() => {
@@ -203,7 +216,17 @@ export function PainelPage() {
           Object.fromEntries(
             dados.itens
               .filter((it) => it.item_id_entregue == null)
-              .map((it) => [it.id, { quantidade: String(it.quantidade_solicitada), liberar: true }]),
+              .map((it) => [
+                it.id,
+                {
+                  quantidade: String(it.quantidade_solicitada),
+                  liberar: true,
+                  substituindo: false,
+                  itemSubstituto: null,
+                  buscaSubstituto: '',
+                  motivoSubstituicao: '',
+                },
+              ]),
           ),
         );
       })
@@ -240,13 +263,28 @@ export function PainelPage() {
         setErroDetalhe(`A quantidade dispensada de "${nome}" não pode ser maior que a solicitada (${it.quantidade_solicitada}).`);
         return;
       }
+      if (edicoes[it.id].substituindo) {
+        if (!edicoes[it.id].itemSubstituto) {
+          setErroDetalhe(`Escolha o item que está sendo entregue no lugar de "${nome}" (ou cancele a substituição).`);
+          return;
+        }
+        if (!edicoes[it.id].motivoSubstituicao.trim()) {
+          setErroDetalhe(`Informe o motivo da substituição de "${nome}".`);
+          return;
+        }
+      }
     }
 
     setErroDetalhe(null);
     setConfirmando(true);
     try {
       for (const it of itensParaEnviar) {
-        const payload: ConferirItemPayload = { quantidade_entregue: Number(edicoes[it.id].quantidade) };
+        const edicao = edicoes[it.id];
+        const payload: ConferirItemPayload = { quantidade_entregue: Number(edicao.quantidade) };
+        if (edicao.substituindo && edicao.itemSubstituto) {
+          payload.item_id_entregue = edicao.itemSubstituto.id;
+          payload.motivo_substituicao = edicao.motivoSubstituicao.trim();
+        }
         // eslint-disable-next-line no-await-in-loop -- confirmação sequencial de propósito (cada item é uma chamada própria da API)
         await api.patch(`/pedidos/${detalhe.id}/itens/${it.id}/conferir`, payload, { token });
       }
@@ -508,6 +546,7 @@ export function PainelPage() {
 
                   if (jaConferido) {
                     const parcial = (it.quantidade_entregue ?? 0) < it.quantidade_solicitada;
+                    const substituido = it.item_id_entregue != null && it.item_id_entregue !== it.item_id_solicitado;
                     return (
                       <div key={it.id} className="item-conferencia">
                         <div className="titulo-item">
@@ -518,6 +557,12 @@ export function PainelPage() {
                           {it.quantidade_entregue === 0 && ' — não atendido'}
                           {parcial && it.quantidade_entregue !== 0 && ' — entrega parcial'}
                         </p>
+                        {substituido && (
+                          <p className="note" style={{ marginTop: 4 }}>
+                            Substituído por <strong>{it.item_entregue?.nome ?? `item #${it.item_id_entregue}`}</strong>
+                            {it.motivo_substituicao && <> — motivo: {it.motivo_substituicao}</>}
+                          </p>
+                        )}
                       </div>
                     );
                   }
@@ -551,6 +596,57 @@ export function PainelPage() {
                           />
                         </div>
                       </div>
+
+                      <button
+                        type="button"
+                        className="link-btn"
+                        style={{ marginTop: 6 }}
+                        onClick={() =>
+                          setEdicoes((atual) => ({
+                            ...atual,
+                            [it.id]: atual[it.id].substituindo
+                              ? { ...atual[it.id], substituindo: false, itemSubstituto: null, buscaSubstituto: '', motivoSubstituicao: '' }
+                              : { ...atual[it.id], substituindo: true },
+                          }))
+                        }
+                      >
+                        {edicao.substituindo ? '✕ Cancelar substituição' : '⇄ Entregar outro item (substituição)'}
+                      </button>
+
+                      {edicao.substituindo && (
+                        <div className="grid" style={{ marginTop: 8 }}>
+                          <div className="field">
+                            <label>Item que está sendo entregue</label>
+                            <BuscaAutocomplete
+                              itens={catalogo.filter((i) => i.ativo)}
+                              valor={edicao.buscaSubstituto}
+                              aoMudarValor={(v) =>
+                                setEdicoes((atual) => ({ ...atual, [it.id]: { ...atual[it.id], buscaSubstituto: v, itemSubstituto: null } }))
+                              }
+                              rotulo={(i) => `${i.codigo} — ${i.nome}`}
+                              chave={(i) => i.id}
+                              aoSelecionar={(i) =>
+                                setEdicoes((atual) => ({
+                                  ...atual,
+                                  [it.id]: { ...atual[it.id], itemSubstituto: i, buscaSubstituto: `${i.codigo} — ${i.nome}` },
+                                }))
+                              }
+                              placeholder="Código ou nome do item…"
+                            />
+                          </div>
+                          <div className="field">
+                            <label>Motivo da substituição</label>
+                            <input
+                              type="text"
+                              placeholder="ex.: só tem seringa com bico, não com rosca"
+                              value={edicao.motivoSubstituicao}
+                              onChange={(e) =>
+                                setEdicoes((atual) => ({ ...atual, [it.id]: { ...atual[it.id], motivoSubstituicao: e.target.value } }))
+                              }
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

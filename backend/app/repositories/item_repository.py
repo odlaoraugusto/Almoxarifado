@@ -18,6 +18,7 @@ class ItemRepository:
             categoria=dados.categoria,
             estoque_minimo=dados.estoque_minimo,
             fabricante=dados.fabricante,
+            valor_unitario=dados.valor_unitario,
             ativo=True,
         )
 

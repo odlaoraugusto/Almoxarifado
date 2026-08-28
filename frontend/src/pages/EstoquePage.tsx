@@ -14,6 +14,7 @@ const FORM_ITEM_VAZIO = {
   categoria: 'material_medico' as CategoriaItem,
   estoque_minimo: '0',
   fabricante: '',
+  valor_unitario: '',
 };
 
 /** Estoque do almoxarifado — catálogo de itens com saldo agregado (Σ
@@ -68,11 +69,14 @@ export function EstoquePage() {
 
   const lotesVencendo = useMemo(
     () =>
-      lotes.filter((l) => {
-        if (!l.data_validade) return false;
-        const nivel = nivelValidade(diasAteVencer(l.data_validade));
-        return nivel === 'vencido' || nivel === 'amarelo' || nivel === 'roxo';
-      }),
+      lotes
+        .filter((l) => {
+          if (!l.data_validade) return false;
+          const nivel = nivelValidade(diasAteVencer(l.data_validade));
+          return nivel === 'vencido' || nivel === 'amarelo' || nivel === 'roxo';
+        })
+        // mais urgente primeiro (vencido há mais tempo, depois o que vence mais cedo)
+        .sort((a, b) => diasAteVencer(a.data_validade!) - diasAteVencer(b.data_validade!)),
     [lotes],
   );
 
@@ -116,6 +120,7 @@ export function EstoquePage() {
       categoria: item.categoria,
       estoque_minimo: String(item.estoque_minimo),
       fabricante: item.fabricante ?? '',
+      valor_unitario: item.valor_unitario ?? '',
     });
   }
   function cancelarEdicaoItem() {
@@ -135,6 +140,7 @@ export function EstoquePage() {
       categoria: formItem.categoria,
       estoque_minimo: Number(formItem.estoque_minimo) || 0,
       fabricante: formItem.fabricante.trim() || undefined,
+      valor_unitario: formItem.valor_unitario.trim() || undefined,
     };
     try {
       if (editandoItemId == null) {
@@ -309,6 +315,30 @@ export function EstoquePage() {
         </div>
       )}
 
+      {lotesVencendo.length > 0 && (
+        <div className="alerta-bloco alerta-critico">
+          <h3>Lotes vencidos ou vencendo</h3>
+          <ul>
+            {lotesVencendo.map((l) => {
+              const dias = diasAteVencer(l.data_validade!);
+              const nivel = nivelValidade(dias);
+              const nomeItem = l.item?.nome ?? itens.find((i) => i.id === l.item_id)?.nome ?? `#${l.item_id}`;
+              return (
+                <li key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {nivel === 'vencido' && <span className="pill danger">venceu há {Math.abs(dias)}d</span>}
+                  {nivel === 'amarelo' && <span className="pill pend">vence em {dias}d</span>}
+                  {nivel === 'roxo' && <span className="pill roxo">vence em {dias}d</span>}
+                  <span>
+                    {nomeItem}
+                    {l.numero_lote ? ` — lote ${l.numero_lote}` : ''} ({l.quantidade_atual} un.)
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {permissoes.gerenciarItens && (
         <form className="panel" onSubmit={aoSubmeterItem}>
           <h2>{editandoItemId == null ? 'Novo item do catálogo' : `Editando — ${formItem.nome}`}</h2>
@@ -389,6 +419,18 @@ export function EstoquePage() {
                 placeholder="0"
                 value={formItem.estoque_minimo}
                 onChange={(e) => setFormItem((f) => ({ ...f, estoque_minimo: e.target.value }))}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="item-valor">
+                Valor unitário <span className="tag">opcional — preço de referência</span>
+              </label>
+              <input
+                id="item-valor"
+                type="text"
+                placeholder="0,00"
+                value={formItem.valor_unitario}
+                onChange={(e) => setFormItem((f) => ({ ...f, valor_unitario: e.target.value }))}
               />
             </div>
           </div>
@@ -481,6 +523,7 @@ export function EstoquePage() {
                   <th>Categoria</th>
                   <th className="num">Atual</th>
                   <th className="num">Mínimo</th>
+                  <th className="num">Valor unit.</th>
                   <th></th>
                   <th></th>
                 </tr>
@@ -488,7 +531,7 @@ export function EstoquePage() {
               <tbody>
                 {itensFiltrados.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="vazio-tabela">
+                    <td colSpan={9} className="vazio-tabela">
                       Nenhum item encontrado.
                     </td>
                   </tr>
@@ -506,6 +549,7 @@ export function EstoquePage() {
                       <td>{labelCategoriaItem(item.categoria)}</td>
                       <td className="num">{item.estoque_atual}</td>
                       <td className="num">{item.estoque_minimo}</td>
+                      <td className="num">{formatarMoeda(item.valor_unitario)}</td>
                       <td>{critico && <span className="pill danger">crítico</span>}</td>
                       <td style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                         {permissoes.gerenciarItens && (

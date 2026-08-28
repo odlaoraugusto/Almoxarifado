@@ -32,6 +32,7 @@ class ItemService:
             estoque_minimo=item.estoque_minimo,
             ativo=item.ativo,
             fabricante=item.fabricante,
+            valor_unitario=item.valor_unitario,
             estoque_atual=estoque_por_item.get(item.id, 0),
         )
 

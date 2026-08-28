@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Enum, Integer, String
+from sqlalchemy import Boolean, Column, Enum, Integer, Numeric, String
 
 from app.database.database import Base
 from app.models.enums import CategoriaItemEnum
@@ -29,6 +29,12 @@ class Item(Base):
     # material de expediente genérico), mas o campo precisa existir pra
     # quem tem (pedido do cliente).
     fabricante = Column(String(150), nullable=True)
+
+    # Preço de REFERÊNCIA do item no catálogo — opcional, independente do
+    # `Lote.valor_unitario` de cada compra (que varia por nota fiscal).
+    # Pedido do cliente: um valor editável a qualquer momento pelo
+    # cadastro do item, sem precisar existir lote nenhum.
+    valor_unitario = Column(Numeric(12, 2), nullable=True)
 
     # Não faz parte da lista literal da seção 4 do doc, mas evita exclusão
     # física do cadastro (que quebraria FK de lotes/pedido_itens

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic import BaseModel, ConfigDict
 
 from app.models.enums import CategoriaItemEnum
@@ -10,6 +12,9 @@ class ItemCreate(BaseModel):
     categoria: CategoriaItemEnum
     estoque_minimo: int = 0
     fabricante: str | None = None
+    # Preço de referência do item no catálogo — opcional, independente do
+    # valor unitário de cada lote (ver app/models/item.py).
+    valor_unitario: Decimal | None = None
 
 
 class ItemUpdate(BaseModel):
@@ -20,6 +25,7 @@ class ItemUpdate(BaseModel):
     estoque_minimo: int | None = None
     ativo: bool | None = None
     fabricante: str | None = None
+    valor_unitario: Decimal | None = None
 
 
 class ItemPublicoOut(BaseModel):
@@ -58,6 +64,7 @@ class ItemOut(BaseModel):
     estoque_minimo: int
     ativo: bool
     fabricante: str | None = None
+    valor_unitario: Decimal | None = None
 
     # Calculado (não é coluna do model `Item`): soma de `Lote.quantidade_atual`
     # de todos os lotes deste item — ver `ItemRepository.listar_com_estoque`.

@@ -24,13 +24,21 @@ class PedidoCreate(BaseModel):
 
 
 class PedidoItemConferirCreate(BaseModel):
-    """Conferência de UM item do pedido — o item entregue é sempre o
-    solicitado (sem troca de item nesta tela; o quadro já identifica o
-    material pedido). `quantidade_entregue=0` registra "não atendido"
-    sem dar baixa em estoque; menor que `quantidade_solicitada` deixa o
-    pedido como "parcial"; não pode ser maior que a solicitada."""
+    """Conferência de UM item do pedido. `quantidade_entregue=0` registra
+    "não atendido" sem dar baixa em estoque; menor que
+    `quantidade_solicitada` deixa o pedido como "parcial"; não pode ser
+    maior que a solicitada.
+
+    `item_id_entregue` é opcional — omitido (ou igual ao item
+    solicitado), entrega normal, sem substituição. Preenchido com outro
+    item do catálogo, registra uma substituição (ex.: pediram seringa
+    com rosca, só tem com bico) — nesse caso `motivo_substituicao` é
+    obrigatório (validado em `PedidoService.conferir_item`), e a baixa
+    de estoque (FEFO) sai do item ENTREGUE, não do solicitado."""
 
     quantidade_entregue: int = Field(ge=0)
+    item_id_entregue: int | None = None
+    motivo_substituicao: str | None = None
 
 
 class PedidoItemOut(BaseModel):
