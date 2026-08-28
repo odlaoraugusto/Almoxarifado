@@ -77,6 +77,7 @@ const CATEGORIA_ITEM_LABEL: Record<string, string> = {
   epi: 'EPI',
   higienizacao: 'Higienização',
   expediente: 'Material de Expediente',
+  enxoval: 'Enxoval',
 };
 export function labelCategoriaItem(categoria: string): string {
   return CATEGORIA_ITEM_LABEL[categoria] ?? categoria;

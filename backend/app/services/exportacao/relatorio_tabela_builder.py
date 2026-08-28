@@ -28,6 +28,7 @@ _CATEGORIA_ITEM_LABEL = {
     CategoriaItemEnum.epi: "EPI",
     CategoriaItemEnum.higienizacao: "Higienização",
     CategoriaItemEnum.expediente: "Material de Expediente",
+    CategoriaItemEnum.enxoval: "Enxoval",
 }
 
 

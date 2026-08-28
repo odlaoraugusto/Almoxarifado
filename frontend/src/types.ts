@@ -16,7 +16,7 @@ export type StatusPedido = 'pendente' | 'parcial' | 'executado';
 export type OrigemLote = 'compra' | 'doacao' | 'emprestimo';
 
 /** Lista fechada — antes era texto livre no cadastro do item. */
-export type CategoriaItem = 'material_medico' | 'epi' | 'higienizacao' | 'expediente';
+export type CategoriaItem = 'material_medico' | 'epi' | 'higienizacao' | 'expediente' | 'enxoval';
 
 export type TipoMovimentacao = 'entrada' | 'saida' | 'ajuste';
 

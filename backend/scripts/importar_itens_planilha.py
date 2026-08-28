@@ -43,7 +43,7 @@ maiúsculo/minúsculo e acento não fazem diferença).
 | `codigo` | texto, único no catálogo | `MAT001` |
 | `nome` | texto | `Luvas de Procedimento (M)` |
 | `apresentacao` | texto | `Caixa c/ 100` |
-| `categoria` | uma das 4 categorias fixas — aceita a chave OU o rótulo, sem diferenciar maiúsculo/acento (ver tabela abaixo) | `Material Médico` ou `material_medico` |
+| `categoria` | uma das 5 categorias fixas — aceita a chave OU o rótulo, sem diferenciar maiúsculo/acento (ver tabela abaixo) | `Material Médico` ou `material_medico` |
 
 Valores aceitos pra `categoria` (qualquer um dos dois lados de cada linha):
 
@@ -53,6 +53,7 @@ Valores aceitos pra `categoria` (qualquer um dos dois lados de cada linha):
 | EPI | `EPI`, `EPI/SIAST` | `epi` |
 | Higienização | `Higienização`, `Higienizacao` | `higienizacao` |
 | Material de Expediente | `Material de Expediente`, `Expediente` | `expediente` |
+| Enxoval | `Enxoval` | `enxoval` |
 
 **Opcionais** — se `quantidade` vier preenchida, o script também registra
 uma ENTRADA de estoque pra aquele item (cria um lote), com os outros
@@ -93,6 +94,7 @@ CATEGORIA_ACEITAS = {
     "higiene": "higienizacao",
     "material de expediente": "expediente",
     "expediente": "expediente",
+    "enxoval": "enxoval",
 }
 
 COLUNAS_OBRIGATORIAS = ["codigo", "nome", "apresentacao", "categoria"]

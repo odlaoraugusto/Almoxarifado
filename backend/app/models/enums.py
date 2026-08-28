@@ -29,6 +29,7 @@ class CategoriaItemEnum(str, enum.Enum):
     epi = "epi"
     higienizacao = "higienizacao"
     expediente = "expediente"
+    enxoval = "enxoval"
 
 
 class DirecaoEmprestimoEnum(str, enum.Enum):

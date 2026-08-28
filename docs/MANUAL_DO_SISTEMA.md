@@ -208,7 +208,7 @@ Campos do cadastro:
 | Nome | Sim |
 | Apresentação | Não (ex.: "Caixa c/ 100") |
 | **Fabricante** | Não — dado de identificação do item, não do lote |
-| Categoria | Sim — uma das 4 fixas: Material Médico, EPI, Higienização, Material de Expediente |
+| Categoria | Sim — uma das 5 fixas: Material Médico, EPI, Higienização, Material de Expediente, Enxoval |
 | Estoque mínimo | Não (0 se não preenchido) — usado pro alerta de "crítico" |
 | **Valor unitário** | Não — preço de referência do item, independente do valor de cada lote (esse outro é editável na tela de Lotes, seção "Lotes" abaixo) |
 
@@ -343,7 +343,7 @@ importa as duas juntas.
   importação parar no meio).
 
 **Planilha de itens — colunas obrigatórias**: `codigo`, `nome`,
-`apresentacao`, `categoria` (uma das 4 fixas — aceita a chave ou o
+`apresentacao`, `categoria` (uma das 5 fixas — aceita a chave ou o
 rótulo).
 
 **Planilha de itens — colunas opcionais**: `estoque_minimo` (0 se vazio

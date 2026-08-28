@@ -339,6 +339,7 @@ script normaliza sozinho:
 | EPI | `EPI`, `EPI/SIAST` |
 | Higienização | `Higienização`, `Higienizacao` |
 | Material de Expediente | `Material de Expediente`, `Expediente` |
+| Enxoval | `Enxoval` |
 
 **Colunas opcionais** (cabeçalho verde) — preencha `quantidade` só se
 esse item já tem estoque físico pra registrar junto do cadastro (cria

@@ -40,7 +40,7 @@ num servidor novo (Docker ou nativo).
   item — dá pra conferir só parte do pedido agora). Status `pendente` → `parcial` →
   `executado`, calculado automaticamente.
 - **Estoque** (`/estoque`): catálogo de itens (categoria fixa: Material Médico / EPI /
-  Higienização / Material de Expediente), saldo por lote, alerta de estoque crítico e
+  Higienização / Material de Expediente / Enxoval), saldo por lote, alerta de estoque crítico e
   vencimento em 4 grupos (vencidos / ≤30d / 30-60d / 60d+).
 - **Entrada por Compra** (`/entrada-compra`): uma nota fiscal (+ AFM opcional), vários itens.
 - **Empréstimos e Permutas** (`/emprestimos`): registro com unidade externa, nas duas
