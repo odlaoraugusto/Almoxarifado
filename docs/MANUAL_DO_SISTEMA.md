@@ -132,8 +132,7 @@ Endereço: `/painel` — tela inicial depois do login.
 
 1. Clique no pedido pra abrir o modal de conferência.
 2. Cada item mostra **duas colunas**: "Qtd. solicitada" (fixa, não dá
-   pra editar — o item entregue é sempre o que foi pedido, sem troca de
-   material nesta tela) e **"Qtd. dispensada"** (editável).
+   pra editar) e **"Qtd. dispensada"** (editável).
 3. Um **checkbox "liberar"** por item decide o que está sendo confirmado
    agora — dá pra liberar só parte dos itens de um pedido e voltar
    depois pro resto (o pedido fica `Parcial` enquanto isso).
@@ -143,6 +142,17 @@ Endereço: `/painel` — tela inicial depois do login.
 5. **Confirmar** — cada item marcado gera uma baixa real de estoque
    (método FEFO, pode consumir de mais de um lote se precisar) e fica
    registrado.
+
+**Substituir item** — quando o almoxarifado não tem exatamente o que foi
+pedido mas tem um equivalente (ex.: pediram seringa com rosca, só tem
+com bico), clique em **"⇄ Entregar outro item (substituição)"** dentro
+do item, na conferência. Aparece uma busca pra escolher o item do
+catálogo que está sendo entregue de verdade, e um campo de **motivo**
+(obrigatório). A baixa de estoque sai do item **entregue**, não do
+solicitado. Qualquer perfil autenticado (Atendente, Coordenador ou
+Admin) pode fazer isso — não é uma permissão restrita. Depois de
+confirmado, a tela mostra "Substituído por [item] — motivo: [...]" no
+lugar do item original.
 
 ### "Marcar executado sem conferência" (atalho)
 
@@ -178,6 +188,12 @@ Endereço: `/estoque`.
 | Vence em 30–60 dias | lilás | Sim |
 | Vence em 60+ dias (sem urgência) | verde | Não (informativo) |
 
+Logo abaixo dos tiles, dois blocos listam item a item (não só o total):
+**Estoque crítico** (item, saldo atual e mínimo) e **Lotes vencidos ou
+vencendo** — cada linha com a mesma cor do nível (vermelho/amarelo/
+lilás), nome do item, número do lote e quantidade, ordenado do mais
+urgente pro menos urgente.
+
 ### Catálogo — cadastro/edição de item
 
 Visível a qualquer login; o formulário de **Novo item**/**Editar** só
@@ -194,6 +210,7 @@ Campos do cadastro:
 | **Fabricante** | Não — dado de identificação do item, não do lote |
 | Categoria | Sim — uma das 4 fixas: Material Médico, EPI, Higienização, Material de Expediente |
 | Estoque mínimo | Não (0 se não preenchido) — usado pro alerta de "crítico" |
+| **Valor unitário** | Não — preço de referência do item, independente do valor de cada lote (esse outro é editável na tela de Lotes, seção "Lotes" abaixo) |
 
 Um item nunca é apagado de verdade (preserva o histórico de pedidos e
 movimentações que o referenciam) — "excluir" é **Desativar**, que some
