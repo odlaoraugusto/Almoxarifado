@@ -63,9 +63,10 @@ num servidor novo (Docker ou nativo).
 
 A matriz de permissões (`PUT /permissoes`) nasce com o comportamento histórico do sistema (Coordenador com tudo liberado, Atendente só com o básico) — o Admin ajusta a partir daí, sem precisar mexer em código.
 
-## Manual do sistema
+## Manuais
 
-Ver **[`docs/MANUAL_DO_SISTEMA.md`](docs/MANUAL_DO_SISTEMA.md)** — manual de uso completo, tela por tela, cobrindo o formulário público e todas as telas do painel (o que cada perfil pode fazer, como conferir um pedido, como funciona a matriz de permissões, etc).
+- **[`docs/GUIA_PRATICO.md`](docs/GUIA_PRATICO.md)** — guia prático "como eu faço X": pedido, conferência/saída, entrada, empréstimo, ajuste, relatório, passo a passo.
+- **[`docs/MANUAL_DO_SISTEMA.md`](docs/MANUAL_DO_SISTEMA.md)** — manual de referência, tela por tela: o que cada perfil pode fazer, campos, permissões, mensagens de erro.
 
 ## Deploy
 
