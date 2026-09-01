@@ -2,7 +2,7 @@
 validados/preenchidos pelo `RelatorioService`) numa `TabelaRelatorio`,
 pronta para os exportadores (PDF/Excel) desenharem."""
 
-from app.models.enums import CategoriaItemEnum, OrigemEnum, StatusPedidoEnum
+from app.models.enums import CategoriaItemEnum, OrigemEnum, StatusPedidoEnum, TipoPedidoEnum
 from app.schemas.relatorio import (
     RelatorioEstoqueOut,
     RelatorioMovimentacoesOut,
@@ -15,12 +15,19 @@ from app.services.exportacao.tabela import TabelaRelatorio
 _ORIGEM_LABEL = {
     OrigemEnum.compra: "Compra",
     OrigemEnum.doacao: "Doação",
+    OrigemEnum.emprestimo: "Empréstimo",
+    OrigemEnum.devolucao: "Devolução",
 }
 
 _STATUS_PEDIDO_LABEL = {
     StatusPedidoEnum.pendente: "Pendente",
     StatusPedidoEnum.parcial: "Parcial",
     StatusPedidoEnum.executado: "Executado",
+}
+
+_TIPO_PEDIDO_LABEL = {
+    TipoPedidoEnum.entrega: "Entrega",
+    TipoPedidoEnum.devolucao: "Devolução",
 }
 
 _CATEGORIA_ITEM_LABEL = {
@@ -53,31 +60,44 @@ def tabela_pedidos(relatorio: RelatorioPedidosOut) -> TabelaRelatorio:
     repetindo os dados do cabeçalho do pedido em cada uma."""
     colunas = [
         "Pedido",
+        "Tipo",
         "Setor",
         "Responsável",
         "Status",
         "Item",
         "Qtd. Solicitada",
-        "Qtd. Dispensada",
+        "Qtd. Dispensada/Devolvida",
+        "Lote / Validade",
         "Data/Hora",
         "Executado Por",
     ]
     linhas = []
     for pedido in relatorio.itens:
+        tipo_label = _TIPO_PEDIDO_LABEL.get(pedido.tipo, pedido.tipo.value)
         status_label = _STATUS_PEDIDO_LABEL.get(pedido.status, pedido.status.value)
         executado_por = pedido.usuario_execucao.nome if pedido.usuario_execucao else ""
         data_hora = formatar_data_hora(pedido.data_hora)
         for item in pedido.itens:
             dispensada = "" if item.quantidade_entregue is None else str(item.quantidade_entregue)
+            nome_item = item.item_solicitado.nome
+            if item.item_entregue and item.item_id_entregue != item.item_id_solicitado:
+                nome_item += f" (substituído por {item.item_entregue.nome})"
+            lotes = "; ".join(
+                f"{lc.numero_lote or 's/ nº'}"
+                f"{f' (val. {formatar_data(lc.data_validade)})' if lc.data_validade else ''} ×{lc.quantidade}"
+                for lc in item.lotes_consumidos
+            )
             linhas.append(
                 [
                     str(pedido.id),
+                    tipo_label,
                     pedido.setor.nome,
                     pedido.responsavel_solicitante,
                     status_label,
-                    item.item_solicitado.nome,
+                    nome_item,
                     str(item.quantidade_solicitada),
                     dispensada,
+                    lotes,
                     data_hora,
                     executado_por,
                 ]
@@ -88,17 +108,30 @@ def tabela_pedidos(relatorio: RelatorioPedidosOut) -> TabelaRelatorio:
         colunas=colunas,
         linhas=linhas,
         informacoes_extra=_periodo_extra(relatorio.periodo_inicio, relatorio.periodo_fim),
-        larguras_relativas=[0.5, 1.0, 1.1, 0.8, 1.8, 0.9, 0.9, 1.1, 1.0],
+        larguras_relativas=[0.5, 0.7, 0.9, 1.0, 0.7, 1.5, 0.8, 0.9, 1.3, 1.0, 0.9],
     )
 
 
 def tabela_estoque(relatorio: RelatorioEstoqueOut) -> TabelaRelatorio:
-    colunas = ["Código", "Item", "Categoria", "Estoque Atual", "Estoque Mínimo", "Situação"]
+    colunas = [
+        "Código",
+        "Item",
+        "Categoria",
+        "Nº Lote",
+        "Validade",
+        "Qtd. no Lote",
+        "Estoque Atual",
+        "Estoque Mínimo",
+        "Situação",
+    ]
     linhas = [
         [
             item.codigo,
             item.nome,
             _CATEGORIA_ITEM_LABEL.get(item.categoria, str(item.categoria)),
+            _texto(item.numero_lote),
+            formatar_data(item.data_validade),
+            _texto(item.quantidade_lote),
             str(item.estoque_atual),
             str(item.estoque_minimo),
             "CRÍTICO" if item.critico else "OK",
@@ -110,7 +143,7 @@ def tabela_estoque(relatorio: RelatorioEstoqueOut) -> TabelaRelatorio:
         metadados=relatorio.metadados,
         colunas=colunas,
         linhas=linhas,
-        larguras_relativas=[0.9, 2.0, 1.2, 1.0, 1.0, 0.9],
+        larguras_relativas=[0.8, 1.8, 1.1, 0.9, 0.9, 0.8, 0.9, 0.9, 0.8],
     )
 
 

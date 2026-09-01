@@ -1,5 +1,21 @@
 /** Formatação compartilhada — evita duplicar Intl.* em cada página. */
 
+/** Converte um valor digitado no formato pt-BR ("1.234,56" ou "2,10") para
+ * uma string decimal com ponto ("1234.56"), que é o que a API espera. */
+export function paraDecimalApi(valor: string): string {
+  return valor.trim().replaceAll('.', '').replace(',', '.');
+}
+
+/** Inverso de `paraDecimalApi` — usado ao pré-popular um input editável
+ * com um valor que já veio da API em formato decimal com ponto ("12.50"),
+ * pra manter o round-trip (digitar/exibir sempre em pt-BR, vírgula). */
+export function paraInputPtBr(valor: string | null | undefined): string {
+  if (valor === null || valor === undefined || valor === '') return '';
+  const numero = Number(valor);
+  if (Number.isNaN(numero)) return '';
+  return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function formatarMoeda(valor: string | number | null | undefined): string {
   if (valor === null || valor === undefined || valor === '') return '—';
   const numero = typeof valor === 'string' ? Number(valor) : valor;

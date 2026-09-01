@@ -5,7 +5,7 @@ import { api, mensagemErro } from '../lib/api';
 import { Alerta } from '../components/Alerta';
 import { SeletorItensEntrada } from '../components/SeletorItensEntrada';
 import type { LinhaItemEntrada } from '../components/SeletorItensEntrada';
-import { formatarDataHora } from '../lib/formato';
+import { formatarDataHora, paraDecimalApi } from '../lib/formato';
 import type { DirecaoEmprestimo, EmprestimoCriarPayload, EmprestimoOut, ItemOut } from '../types';
 
 const DIRECAO_LABEL: Record<DirecaoEmprestimo, string> = {
@@ -113,7 +113,7 @@ export function EmprestimosPage() {
         quantidade: Number(l.quantidade),
         numero_lote: direcao === 'entrada' ? l.numeroLote.trim() || undefined : undefined,
         data_validade: direcao === 'entrada' ? l.dataValidade || undefined : undefined,
-        valor_unitario: direcao === 'entrada' ? l.valorUnitario.trim() || undefined : undefined,
+        valor_unitario: direcao === 'entrada' && l.valorUnitario.trim() ? paraDecimalApi(l.valorUnitario) : undefined,
       })),
     };
 

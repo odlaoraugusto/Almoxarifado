@@ -22,7 +22,7 @@ $ErrorActionPreference = "Stop"
 
 # ---- ajustar estes dois caminhos pra realidade desta maquina ----
 $pgDumpExe = "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe"
-$backupDir = "D:\Backups\Almoxarifado"   # disco/pasta SEPARADA do servidor principal
+$backupDir = "C:\Backups\Almoxarifado"   # sem disco D: nesta maquina; backup local mesmo
 # -------------------------------------------------------------------
 
 $envPath = Join-Path $PSScriptRoot "..\.env"

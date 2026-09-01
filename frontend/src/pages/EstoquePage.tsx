@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { api, mensagemErro } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
-import { CATEGORIAS_ITEM, diasAteVencer, formatarData, formatarMoeda, labelCategoriaItem, labelOrigemLote, nivelValidade } from '../lib/formato';
+import { CATEGORIAS_ITEM, diasAteVencer, formatarData, formatarMoeda, labelCategoriaItem, labelOrigemLote, nivelValidade, paraDecimalApi, paraInputPtBr } from '../lib/formato';
 import type { AjusteCriarPayload, CategoriaItem, ItemCriarPayload, ItemOut, LoteAtualizarPayload, LoteOut } from '../types';
 
 const FORM_ITEM_VAZIO = {
@@ -120,7 +120,7 @@ export function EstoquePage() {
       categoria: item.categoria,
       estoque_minimo: String(item.estoque_minimo),
       fabricante: item.fabricante ?? '',
-      valor_unitario: item.valor_unitario ?? '',
+      valor_unitario: paraInputPtBr(item.valor_unitario),
     });
   }
   function cancelarEdicaoItem() {
@@ -140,7 +140,7 @@ export function EstoquePage() {
       categoria: formItem.categoria,
       estoque_minimo: Number(formItem.estoque_minimo) || 0,
       fabricante: formItem.fabricante.trim() || undefined,
-      valor_unitario: formItem.valor_unitario.trim() || undefined,
+      valor_unitario: formItem.valor_unitario.trim() ? paraDecimalApi(formItem.valor_unitario) : undefined,
     };
     try {
       if (editandoItemId == null) {
@@ -224,7 +224,7 @@ export function EstoquePage() {
 
   function abrirEdicaoValor(lote: LoteOut) {
     setLoteEditandoValorId(lote.id);
-    setValorUnitarioEdit(lote.valor_unitario ?? '');
+    setValorUnitarioEdit(paraInputPtBr(lote.valor_unitario));
     setErro(null);
     setSucesso(null);
   }
@@ -238,7 +238,9 @@ export function EstoquePage() {
     setErro(null);
     setSucesso(null);
     setSalvandoValorUnitario(true);
-    const payload: LoteAtualizarPayload = { valor_unitario: valorUnitarioEdit.trim() || null };
+    const payload: LoteAtualizarPayload = {
+      valor_unitario: valorUnitarioEdit.trim() ? paraDecimalApi(valorUnitarioEdit) : null,
+    };
     try {
       await api.put(`/lotes/${loteId}`, payload, { token });
       setSucesso('Valor unitário atualizado.');

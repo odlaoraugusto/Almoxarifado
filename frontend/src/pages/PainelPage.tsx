@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { jsPDF } from 'jspdf';
 import { useAuth } from '../context/AuthContext';
 import { api, baixarArquivo, mensagemErro } from '../lib/api';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
-import { formatarDataHora, labelStatusPedido, pillStatusPedido } from '../lib/formato';
-import type { ConferirItemPayload, ItemOut, PedidoOut, Setor, StatusPedido } from '../types';
+import { HOSPITAL_SIGLA } from '../lib/instituicao';
+import { formatarData, formatarDataHora, labelStatusPedido, paraDecimalApi, pillStatusPedido } from '../lib/formato';
+import type { ConferirItemPayload, ItemOut, LoteOut, PedidoOut, Setor, StatusPedido } from '../types';
 
 interface EdicaoItem {
   quantidade: string;
@@ -17,6 +19,12 @@ interface EdicaoItem {
   itemSubstituto: ItemOut | null;
   buscaSubstituto: string;
   motivoSubstituicao: string;
+  /** Só usados quando o PEDIDO é `tipo=devolucao` (2026-09-01, pedido do
+   * cliente) — descrevem o lote novo criado pela devolução, todos
+   * opcionais (nem todo material tem lote formal ou vencimento). */
+  numeroLote: string;
+  dataValidade: string;
+  valorUnitario: string;
 }
 
 type AbaStatus = 'todos' | StatusPedido;
@@ -71,6 +79,7 @@ export function PainelPage() {
 
   const [setores, setSetores] = useState<Setor[]>([]);
   const [catalogo, setCatalogo] = useState<ItemOut[]>([]);
+  const [lotes, setLotes] = useState<LoteOut[]>([]);
   const [pedidos, setPedidos] = useState<PedidoOut[]>([]);
   const [carregandoLista, setCarregandoLista] = useState(true);
   const [erroLista, setErroLista] = useState<string | null>(null);
@@ -91,7 +100,43 @@ export function PainelPage() {
     // Catálogo completo — só usado pra buscar um item substituto na
     // conferência (ver EdicaoItem.itemSubstituto).
     api.get<ItemOut[]>('/itens', { token }).then(setCatalogo).catch(() => {});
+    // Lotes — só usado pra mostrar lote/validade do item substituto ANTES
+    // de confirmar (2026-08-31, pedido do cliente: quem está escolhendo o
+    // substituto precisa ver o que tem fisicamente disponível pra decidir
+    // se serve). O lote de fato usado na baixa continua sendo escolhido
+    // pelo FEFO no backend — isto aqui é só uma prévia informativa.
+    api.get<LoteOut[]>('/lotes', { token }).then(setLotes).catch(() => {});
   }, [token]);
+
+  // Lote sugerido (FEFO: validade mais próxima entre os com saldo) +
+  // saldo total do item, pra exibir na busca de substituto.
+  const loteFefoPorItem = useMemo(() => {
+    const mapa = new Map<number, { lote: LoteOut; saldoTotal: number }>();
+    const porItem = new Map<number, LoteOut[]>();
+    for (const lote of lotes) {
+      if (lote.quantidade_atual <= 0) continue;
+      const lista = porItem.get(lote.item_id) ?? [];
+      lista.push(lote);
+      porItem.set(lote.item_id, lista);
+    }
+    for (const [itemId, lista] of porItem) {
+      const saldoTotal = lista.reduce((soma, l) => soma + l.quantidade_atual, 0);
+      const ordenados = [...lista].sort((a, b) => {
+        if (!a.data_validade) return 1;
+        if (!b.data_validade) return -1;
+        return a.data_validade.localeCompare(b.data_validade);
+      });
+      mapa.set(itemId, { lote: ordenados[0], saldoTotal });
+    }
+    return mapa;
+  }, [lotes]);
+
+  function rotuloComLote(item: ItemOut): string {
+    const info = loteFefoPorItem.get(item.id);
+    if (!info) return `${item.codigo} — ${item.nome} — sem estoque`;
+    const validade = info.lote.data_validade ? `vence ${formatarData(info.lote.data_validade)}` : 'sem validade cadastrada';
+    return `${item.codigo} — ${item.nome} — lote ${info.lote.numero_lote ?? 's/ nº'} (${validade}) — saldo ${info.saldoTotal}`;
+  }
 
   const carregarLista = useCallback(() => {
     if (!token) return;
@@ -225,6 +270,9 @@ export function PainelPage() {
                   itemSubstituto: null,
                   buscaSubstituto: '',
                   motivoSubstituicao: '',
+                  numeroLote: '',
+                  dataValidade: '',
+                  valorUnitario: '',
                 },
               ]),
           ),
@@ -285,6 +333,11 @@ export function PainelPage() {
           payload.item_id_entregue = edicao.itemSubstituto.id;
           payload.motivo_substituicao = edicao.motivoSubstituicao.trim();
         }
+        if (detalhe.tipo === 'devolucao') {
+          if (edicao.numeroLote.trim()) payload.numero_lote = edicao.numeroLote.trim();
+          if (edicao.dataValidade) payload.data_validade = edicao.dataValidade;
+          if (edicao.valorUnitario.trim()) payload.valor_unitario = paraDecimalApi(edicao.valorUnitario);
+        }
         // eslint-disable-next-line no-await-in-loop -- confirmação sequencial de propósito (cada item é uma chamada própria da API)
         await api.patch(`/pedidos/${detalhe.id}/itens/${it.id}/conferir`, payload, { token });
       }
@@ -316,6 +369,77 @@ export function PainelPage() {
     } finally {
       setExportando(null);
     }
+  }
+
+  // ---- comprovante em PDF de UM pedido, sob demanda do almoxarifado
+  // (2026-09-01, pedido do cliente: até aqui só quem preenchia o
+  // formulário público conseguia baixar o comprovante logo após enviar;
+  // o almoxarifado precisa poder reimprimir qualquer pedido depois,
+  // já refletindo o que foi de fato entregue quando executado). */
+  function imprimirComprovante(pedido: PedidoOut) {
+    const setorNome = pedido.setor?.nome ?? setores.find((s) => s.id === pedido.setor_id)?.nome ?? '—';
+    const roxo: [number, number, number] = [97, 53, 140];
+
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.setTextColor(...roxo);
+    doc.text(`Comprovante de Pedido — Almoxarifado ${HOSPITAL_SIGLA}`, 14, 18);
+    doc.setDrawColor(...roxo);
+    doc.line(14, 22, 196, 22);
+
+    doc.setFontSize(11);
+    doc.setTextColor(60, 60, 60);
+    let y = 32;
+    const linha = (label: string, valor: string) => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(label, 14, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(valor || '-', 55, y);
+      y += 8;
+    };
+
+    linha('Protocolo:', `#${pedido.id}`);
+    linha('Data/Hora:', formatarDataHora(pedido.data_hora));
+    linha('Setor:', setorNome);
+    linha('Responsável:', pedido.responsavel_solicitante);
+    linha('Status:', labelStatusPedido(pedido.status));
+    if (pedido.data_execucao) linha('Executado em:', formatarDataHora(pedido.data_execucao));
+    if (pedido.usuario_execucao) linha('Executado por:', pedido.usuario_execucao.nome);
+    if (pedido.observacao) linha('Observação:', pedido.observacao);
+
+    y += 4;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Itens', 14, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    for (const it of pedido.itens) {
+      const solicitado = it.item_solicitado?.nome ?? `item #${it.item_id_solicitado}`;
+      if (it.item_id_entregue && it.item_id_entregue !== it.item_id_solicitado) {
+        const entregue = it.item_entregue?.nome ?? `item #${it.item_id_entregue}`;
+        doc.text(
+          `• ${solicitado} — solicitado: ${it.quantidade_solicitada} — entregue (substituição): ${entregue} × ${it.quantidade_entregue ?? 0}`,
+          16,
+          y,
+        );
+      } else {
+        doc.text(
+          `• ${solicitado} — solicitado: ${it.quantidade_solicitada}` +
+            (it.quantidade_entregue !== null ? ` — entregue: ${it.quantidade_entregue}` : ''),
+          16,
+          y,
+        );
+      }
+      y += 7;
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+    }
+
+    doc.setFontSize(9);
+    doc.setTextColor(140, 140, 140);
+    doc.text('Documento gerado automaticamente pelo sistema de solicitação de materiais.', 14, 285);
+    doc.save(`comprovante_pedido_${pedido.id}.pdf`);
   }
 
   return (
@@ -437,6 +561,7 @@ export function PainelPage() {
                     />
                   </th>
                   <th>#</th>
+                  <th>Tipo</th>
                   <th>Data/hora</th>
                   <th>Setor</th>
                   <th>Responsável</th>
@@ -448,7 +573,7 @@ export function PainelPage() {
               <tbody>
                 {listaFiltrada.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="vazio-tabela">
+                    <td colSpan={9} className="vazio-tabela">
                       Nenhum pedido encontrado com esse filtro.
                     </td>
                   </tr>
@@ -467,6 +592,11 @@ export function PainelPage() {
                         )}
                       </td>
                       <td className="mono">#{p.id}</td>
+                      <td>
+                        <span className={`pill ${p.tipo === 'devolucao' ? 'roxo' : 'muted'}`}>
+                          {p.tipo === 'devolucao' ? 'Devolução' : 'Entrega'}
+                        </span>
+                      </td>
                       <td className="mono">{formatarDataHora(p.data_hora)}</td>
                       <td>{p.setor?.nome ?? setores.find((s) => s.id === p.setor_id)?.nome ?? `#${p.setor_id}`}</td>
                       <td>{p.responsavel_solicitante}</td>
@@ -487,6 +617,9 @@ export function PainelPage() {
                         <div className="acoes-linha">
                           <button type="button" className="btn ghost sm" onClick={() => abrirModal(p.id)}>
                             {executado ? 'Ver detalhes' : 'Conferir e liberar'}
+                          </button>
+                          <button type="button" className="btn ghost sm" onClick={() => imprimirComprovante(p)}>
+                            Imprimir
                           </button>
                         </div>
                       </td>
@@ -530,7 +663,15 @@ export function PainelPage() {
             {carregandoDetalhe && <p className="carregando">Carregando…</p>}
             {!carregandoDetalhe && detalhe && (
               <>
-                <h2>{todosItensConferidos ? 'Detalhes da entrega' : 'Conferir itens do pedido'}</h2>
+                <h2>
+                  {detalhe.tipo === 'devolucao'
+                    ? todosItensConferidos
+                      ? 'Detalhes da devolução'
+                      : 'Conferir itens da devolução'
+                    : todosItensConferidos
+                      ? 'Detalhes da entrega'
+                      : 'Conferir itens do pedido'}
+                </h2>
                 <div className="sub">
                   Pedido #{detalhe.id} — {detalhe.setor?.nome ?? `#${detalhe.setor_id}`} — {detalhe.responsavel_solicitante}
                 </div>
@@ -550,17 +691,35 @@ export function PainelPage() {
                     return (
                       <div key={it.id} className="item-conferencia">
                         <div className="titulo-item">
-                          {nome} <span className="qtd-pedida">(solicitado: {it.quantidade_solicitada})</span>
+                          {nome}{' '}
+                          <span className="qtd-pedida">
+                            ({detalhe.tipo === 'devolucao' ? 'a devolver' : 'solicitado'}: {it.quantidade_solicitada})
+                          </span>
                         </div>
                         <p className={`note ${parcial ? '' : 'ok'}`} style={{ marginTop: 0 }}>
-                          Dispensado: <strong>{it.quantidade_entregue}</strong> de {it.quantidade_solicitada}
-                          {it.quantidade_entregue === 0 && ' — não atendido'}
-                          {parcial && it.quantidade_entregue !== 0 && ' — entrega parcial'}
+                          {detalhe.tipo === 'devolucao' ? 'Recebido de volta' : 'Dispensado'}: <strong>{it.quantidade_entregue}</strong> de{' '}
+                          {it.quantidade_solicitada}
+                          {it.quantidade_entregue === 0 &&
+                            (detalhe.tipo === 'devolucao' ? ' — não recebido' : ' — não atendido')}
+                          {parcial && it.quantidade_entregue !== 0 && (detalhe.tipo === 'devolucao' ? ' — devolução parcial' : ' — entrega parcial')}
                         </p>
                         {substituido && (
                           <p className="note" style={{ marginTop: 4 }}>
                             Substituído por <strong>{it.item_entregue?.nome ?? `item #${it.item_id_entregue}`}</strong>
                             {it.motivo_substituicao && <> — motivo: {it.motivo_substituicao}</>}
+                          </p>
+                        )}
+                        {it.lotes_consumidos && it.lotes_consumidos.length > 0 && (
+                          <p className="note" style={{ marginTop: 4 }}>
+                            Lote{it.lotes_consumidos.length > 1 ? 's' : ''}:{' '}
+                            {it.lotes_consumidos
+                              .map(
+                                (lc) =>
+                                  `${lc.numero_lote ?? 's/ nº'}${
+                                    lc.data_validade ? ` (vence ${formatarData(lc.data_validade)})` : ' (sem validade cadastrada)'
+                                  } — ${lc.quantidade} un.`,
+                              )
+                              .join('; ')}
                           </p>
                         )}
                       </div>
@@ -581,11 +740,11 @@ export function PainelPage() {
                       </label>
                       <div className="grid">
                         <div className="field">
-                          <label>Qtd. solicitada</label>
+                          <label>{detalhe.tipo === 'devolucao' ? 'Qtd. a devolver' : 'Qtd. solicitada'}</label>
                           <div className="box">{it.quantidade_solicitada}</div>
                         </div>
                         <div className="field">
-                          <label>Qtd. dispensada</label>
+                          <label>{detalhe.tipo === 'devolucao' ? 'Qtd. recebida de volta' : 'Qtd. dispensada'}</label>
                           <input
                             type="number"
                             min={0}
@@ -596,6 +755,40 @@ export function PainelPage() {
                           />
                         </div>
                       </div>
+
+                      {detalhe.tipo === 'devolucao' && (
+                        <div className="grid" style={{ marginTop: 8 }}>
+                          <div className="field">
+                            <label>Nº do lote (opcional)</label>
+                            <input
+                              type="text"
+                              disabled={!edicao.liberar}
+                              value={edicao.numeroLote}
+                              onChange={(e) => setEdicoes((atual) => ({ ...atual, [it.id]: { ...atual[it.id], numeroLote: e.target.value } }))}
+                            />
+                          </div>
+                          <div className="field">
+                            <label>Validade (opcional)</label>
+                            <input
+                              type="date"
+                              disabled={!edicao.liberar}
+                              value={edicao.dataValidade}
+                              onChange={(e) => setEdicoes((atual) => ({ ...atual, [it.id]: { ...atual[it.id], dataValidade: e.target.value } }))}
+                            />
+                          </div>
+                          <div className="field">
+                            <label>Valor unitário (opcional)</label>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="R$ 0,00"
+                              disabled={!edicao.liberar}
+                              value={edicao.valorUnitario}
+                              onChange={(e) => setEdicoes((atual) => ({ ...atual, [it.id]: { ...atual[it.id], valorUnitario: e.target.value } }))}
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       <button
                         type="button"
@@ -623,7 +816,7 @@ export function PainelPage() {
                               aoMudarValor={(v) =>
                                 setEdicoes((atual) => ({ ...atual, [it.id]: { ...atual[it.id], buscaSubstituto: v, itemSubstituto: null } }))
                               }
-                              rotulo={(i) => `${i.codigo} — ${i.nome}`}
+                              rotulo={rotuloComLote}
                               chave={(i) => i.id}
                               aoSelecionar={(i) =>
                                 setEdicoes((atual) => ({
@@ -633,6 +826,26 @@ export function PainelPage() {
                               }
                               placeholder="Código ou nome do item…"
                             />
+                            {edicao.itemSubstituto &&
+                              (() => {
+                                const info = loteFefoPorItem.get(edicao.itemSubstituto.id);
+                                if (!info) {
+                                  return (
+                                    <p className="note" style={{ color: 'var(--danger, #c0392b)', marginTop: 4 }}>
+                                      Sem estoque disponível para este item.
+                                    </p>
+                                  );
+                                }
+                                const validade = info.lote.data_validade
+                                  ? `vence ${formatarData(info.lote.data_validade)}`
+                                  : 'sem validade cadastrada';
+                                return (
+                                  <p className="note" style={{ marginTop: 4 }}>
+                                    Lote sugerido (usar primeiro): <strong>{info.lote.numero_lote ?? 's/ nº'}</strong> — {validade} — saldo total{' '}
+                                    {info.saldoTotal}
+                                  </p>
+                                );
+                              })()}
                           </div>
                           <div className="field">
                             <label>Motivo da substituição</label>

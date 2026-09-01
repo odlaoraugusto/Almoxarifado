@@ -18,6 +18,10 @@ class OrigemEnum(str, enum.Enum):
     compra = "compra"
     doacao = "doacao"
     emprestimo = "emprestimo"
+    # 2026-09-01, pedido do cliente: lote criado pela conferência de um
+    # Pedido tipo=devolucao (ver TipoPedidoEnum) — o setor está devolvendo
+    # material ao almoxarifado, não comprando/doando/emprestando.
+    devolucao = "devolucao"
 
 
 class CategoriaItemEnum(str, enum.Enum):
@@ -53,6 +57,18 @@ class StatusPedidoEnum(str, enum.Enum):
     pendente = "pendente"
     parcial = "parcial"
     executado = "executado"
+
+
+class TipoPedidoEnum(str, enum.Enum):
+    """`entrega` (padrão): o setor está pedindo material do almoxarifado —
+    a conferência dá baixa real de estoque via FEFO, igual sempre foi.
+    `devolucao` (2026-09-01, pedido do cliente): o setor está devolvendo
+    material ao almoxarifado — a conferência cria lote(s) novo(s) em vez
+    de baixar estoque, igual a uma Entrada (ver
+    `PedidoService.conferir_item`)."""
+
+    entrega = "entrega"
+    devolucao = "devolucao"
 
 
 class TipoMovimentacaoEnum(str, enum.Enum):

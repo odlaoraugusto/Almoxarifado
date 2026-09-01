@@ -38,6 +38,15 @@ class PedidoItem(Base):
         "Item", foreign_keys=[item_id_entregue], lazy="selectin"
     )
 
+    # Movimentações de saída que baixaram este item de pedido (FEFO pode
+    # consumir mais de um lote pra uma única conferência) — usado pelo
+    # relatório de Pedidos para mostrar lote/validade do que foi
+    # efetivamente entregue, sobretudo quando houve substituição
+    # (2026-08-31, pedido do cliente). `viewonly=True`: é só leitura, a
+    # gravação de Movimentacao continua pelo fluxo normal em
+    # PedidoService/ConsumoFefoService.
+    movimentacoes = relationship("Movimentacao", viewonly=True, lazy="selectin")
+
     __table_args__ = (
         CheckConstraint(
             "quantidade_solicitada > 0", name="ck_pedido_itens_quantidade_solicitada_positiva"

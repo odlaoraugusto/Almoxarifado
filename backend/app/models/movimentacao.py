@@ -29,11 +29,13 @@ class Movimentacao(Base):
     lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=False, index=True)
     quantidade = Column(Integer, nullable=False)
 
-    # Preenchido só quando tipo=saida — liga à liberação de um item de
-    # pedido específico (conferência). Nulo em entrada/ajuste, e nulo
-    # também quando a saída veio de um empréstimo (ver emprestimo_id
-    # abaixo) — os dois são mutuamente opcionais, nunca preenchidos ao
-    # mesmo tempo na prática.
+    # Liga à conferência de um item de pedido específico — preenchido em
+    # tipo=saida (pedido comum, `Pedido.tipo=entrega`, baixa via FEFO) OU
+    # tipo=entrada (pedido `Pedido.tipo=devolucao`, 2026-09-01: o setor
+    # devolveu material, a conferência criou um lote novo). Nulo em
+    # ajuste, e nulo também quando a movimentação veio de um empréstimo
+    # (ver emprestimo_id abaixo) — os dois são mutuamente opcionais,
+    # nunca preenchidos ao mesmo tempo na prática.
     pedido_item_id = Column(Integer, ForeignKey("pedido_itens.id"), nullable=True)
 
     # Preenchido só quando tipo=saida e a baixa veio de um empréstimo

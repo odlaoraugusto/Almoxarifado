@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api, mensagemErro } from '../lib/api';
+import { paraDecimalApi } from '../lib/formato';
 import { Alerta } from '../components/Alerta';
 import { SeletorItensEntrada } from '../components/SeletorItensEntrada';
 import type { LinhaItemEntrada } from '../components/SeletorItensEntrada';
@@ -76,7 +77,7 @@ export function EntradaCompraPage() {
           numero_lote: l.numeroLote.trim() || undefined,
           data_validade: l.dataValidade || undefined,
           quantidade: Number(l.quantidade),
-          valor_unitario: l.valorUnitario.trim() || undefined,
+          valor_unitario: l.valorUnitario.trim() ? paraDecimalApi(l.valorUnitario) : undefined,
           origem: 'compra',
           numero_nota_fiscal: numeroNotaFiscal.trim(),
           numero_afm: numeroAfm.trim() || undefined,

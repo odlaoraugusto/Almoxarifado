@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api, baixarArquivo, mensagemErro } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
@@ -94,6 +94,7 @@ export function RelatoriosPage() {
   const [erroPrevia, setErroPrevia] = useState<string | null>(null);
 
   async function carregarPrevia() {
+    if (!token) return;
     setErroPrevia(null);
     setCarregandoPrevia(true);
     try {
@@ -106,6 +107,16 @@ export function RelatoriosPage() {
       setCarregandoPrevia(false);
     }
   }
+
+  // Carrega a prévia automaticamente ao entrar na tela, trocar de aba ou
+  // mudar um filtro (2026-08-31, pedido do cliente) — antes exigia
+  // clicar em "Ver prévia" toda vez. O botão continua existindo, agora
+  // só como "Atualizar" manual (útil se os dados mudaram no banco
+  // enquanto a tela estava aberta).
+  useEffect(() => {
+    carregarPrevia();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, abaAtiva, status, dataInicio, dataFim, diasVencimento]);
 
   return (
     <section>
@@ -165,8 +176,8 @@ export function RelatoriosPage() {
         </div>
 
         <div className="actions" style={{ marginTop: 0 }}>
-          <button type="button" className="btn" disabled={carregandoPrevia} onClick={carregarPrevia}>
-            {carregandoPrevia ? 'Carregando…' : previa ? 'Atualizar prévia' : 'Ver prévia'}
+          <button type="button" className="btn ghost" disabled={carregandoPrevia} onClick={carregarPrevia}>
+            {carregandoPrevia ? 'Carregando…' : 'Atualizar prévia'}
           </button>
           <button type="button" className="btn ghost" disabled={exportando !== null} onClick={() => exportar('excel')}>
             {exportando === 'excel' ? 'Gerando Excel…' : 'Exportar Excel'}
@@ -178,6 +189,8 @@ export function RelatoriosPage() {
       </div>
 
       {erroPrevia && <Alerta tipo="erro">{erroPrevia}</Alerta>}
+
+      {carregandoPrevia && !previa && <p className="carregando">Carregando prévia…</p>}
 
       {previa && (
         <div className="panel">
@@ -215,6 +228,7 @@ function PreviaTabela({
               <th>Item</th>
               <th className="num">Qtd. Solicitada</th>
               <th className="num">Qtd. Dispensada</th>
+              <th>Lote / Validade entregue</th>
               <th>Data/Hora</th>
               <th>Executado Por</th>
             </tr>
@@ -222,26 +236,46 @@ function PreviaTabela({
           <tbody>
             {linhas.length === 0 && (
               <tr>
-                <td colSpan={9} className="vazio-tabela">
+                <td colSpan={10} className="vazio-tabela">
                   Nenhum pedido encontrado com esse filtro.
                 </td>
               </tr>
             )}
-            {linhas.map(({ pedido, item }) => (
-              <tr key={item.id}>
-                <td className="mono">#{pedido.id}</td>
-                <td>{pedido.setor?.nome ?? `#${pedido.setor_id}`}</td>
-                <td>{pedido.responsavel_solicitante}</td>
-                <td>
-                  <span className={pillStatusPedido(pedido.status)}>{labelStatusPedido(pedido.status)}</span>
-                </td>
-                <td>{item.item_solicitado?.nome ?? `item #${item.item_id_solicitado}`}</td>
-                <td className="num">{item.quantidade_solicitada}</td>
-                <td className="num">{item.quantidade_entregue ?? '—'}</td>
-                <td className="mono">{formatarDataHora(pedido.data_hora)}</td>
-                <td>{pedido.usuario_execucao?.nome ?? '—'}</td>
-              </tr>
-            ))}
+            {linhas.map(({ pedido, item }) => {
+              const substituido = item.item_entregue && item.item_id_entregue !== item.item_id_solicitado;
+              return (
+                <tr key={item.id}>
+                  <td className="mono">#{pedido.id}</td>
+                  <td>{pedido.setor?.nome ?? `#${pedido.setor_id}`}</td>
+                  <td>{pedido.responsavel_solicitante}</td>
+                  <td>
+                    <span className={pillStatusPedido(pedido.status)}>{labelStatusPedido(pedido.status)}</span>
+                  </td>
+                  <td>
+                    {item.item_solicitado?.nome ?? `item #${item.item_id_solicitado}`}
+                    {substituido && (
+                      <div className="screen-sub" style={{ margin: '2px 0 0', fontSize: 11 }}>
+                        substituído por {item.item_entregue?.nome}
+                      </div>
+                    )}
+                  </td>
+                  <td className="num">{item.quantidade_solicitada}</td>
+                  <td className="num">{item.quantidade_entregue ?? '—'}</td>
+                  <td className="mono">
+                    {item.lotes_consumidos && item.lotes_consumidos.length > 0
+                      ? item.lotes_consumidos
+                          .map(
+                            (lc) =>
+                              `${lc.numero_lote ?? 's/ nº'}${lc.data_validade ? ` (val. ${formatarData(lc.data_validade)})` : ''} ×${lc.quantidade}`,
+                          )
+                          .join('; ')
+                      : '—'}
+                  </td>
+                  <td className="mono">{formatarDataHora(pedido.data_hora)}</td>
+                  <td>{pedido.usuario_execucao?.nome ?? '—'}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -258,6 +292,9 @@ function PreviaTabela({
               <th>Código</th>
               <th>Item</th>
               <th>Categoria</th>
+              <th>Nº Lote</th>
+              <th>Validade</th>
+              <th className="num">Qtd. no Lote</th>
               <th className="num">Estoque Atual</th>
               <th className="num">Estoque Mínimo</th>
               <th>Situação</th>
@@ -266,16 +303,19 @@ function PreviaTabela({
           <tbody>
             {relatorio.itens.length === 0 && (
               <tr>
-                <td colSpan={6} className="vazio-tabela">
+                <td colSpan={9} className="vazio-tabela">
                   Nenhum item no catálogo.
                 </td>
               </tr>
             )}
             {relatorio.itens.map((item) => (
-              <tr key={item.item_id}>
+              <tr key={item.lote_id ?? `item-${item.item_id}`}>
                 <td className="mono">{item.codigo}</td>
                 <td>{item.nome}</td>
                 <td>{labelCategoriaItem(item.categoria)}</td>
+                <td className="mono">{item.numero_lote ?? '—'}</td>
+                <td>{item.data_validade ? formatarData(item.data_validade) : '—'}</td>
+                <td className="num">{item.quantidade_lote ?? '—'}</td>
                 <td className="num">{item.estoque_atual}</td>
                 <td className="num">{item.estoque_minimo}</td>
                 <td>{item.critico ? <span className="pill danger">crítico</span> : <span className="pill ok">ok</span>}</td>

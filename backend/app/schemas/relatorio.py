@@ -26,10 +26,20 @@ class RelatorioPedidosOut(BaseModel):
 
 
 class RelatorioEstoqueItem(BaseModel):
+    """Uma linha por LOTE do item (2026-08-31, pedido do cliente: "mostre
+    o lote também na posição de estoque") — item sem nenhum lote com
+    saldo aparece como uma única linha com os campos de lote vazios, pra
+    não sumir da lista (ex.: item crítico com prateleira zerada,
+    exatamente o caso que mais importa destacar)."""
+
     item_id: int
     codigo: str
     nome: str
     categoria: str
+    lote_id: int | None
+    numero_lote: str | None
+    data_validade: date | None
+    quantidade_lote: int | None
     estoque_atual: int
     estoque_minimo: int
     critico: bool

@@ -4,7 +4,7 @@ import { jsPDF } from 'jspdf';
 import { api, mensagemErro } from '../lib/api';
 import { HOSPITAL_SIGLA } from '../lib/instituicao';
 import { labelCategoriaItem } from '../lib/formato';
-import type { ItemPublico, PedidoCriarPayload, PedidoOut, Setor } from '../types';
+import type { ItemPublico, PedidoCriarPayload, PedidoOut, Setor, TipoPedido } from '../types';
 
 interface LinhaPedido {
   item: ItemPublico;
@@ -50,6 +50,7 @@ export function PedidoPublicoPage() {
     };
   }, []);
 
+  const [tipo, setTipo] = useState<TipoPedido>('entrega');
   const [setorId, setSetorId] = useState('');
   const [responsavel, setResponsavel] = useState('');
   const [observacao, setObservacao] = useState('');
@@ -82,7 +83,7 @@ export function PedidoPublicoPage() {
     if (!termo) return [];
     return catalogo
       .filter((item) => normalizar(item.codigo).includes(termo) || normalizar(item.nome).includes(termo))
-      .slice(0, 8);
+      .slice(0, 50);
   }, [busca, catalogo]);
 
   function aoDigitarBusca(valor: string) {
@@ -162,6 +163,7 @@ export function PedidoPublicoPage() {
       setor_id: Number(setorId),
       responsavel_solicitante: responsavel.trim(),
       observacao: observacao.trim() || undefined,
+      tipo,
       itens: linhas.map((l) => ({ item_id: l.item.id, quantidade: l.quantidade })),
     };
 
@@ -177,6 +179,7 @@ export function PedidoPublicoPage() {
 
   function novoPedido() {
     setResultado(null);
+    setTipo('entrega');
     setSetorId('');
     setResponsavel('');
     setObservacao('');
@@ -193,7 +196,8 @@ export function PedidoPublicoPage() {
     const doc = new jsPDF();
     doc.setFontSize(14);
     doc.setTextColor(...roxo);
-    doc.text(`Comprovante de Pedido — Almoxarifado ${HOSPITAL_SIGLA}`, 14, 18);
+    const tituloComprovante = resultado.tipo === 'devolucao' ? 'Comprovante de Devolução' : 'Comprovante de Pedido';
+    doc.text(`${tituloComprovante} — Almoxarifado ${HOSPITAL_SIGLA}`, 14, 18);
     doc.setDrawColor(...roxo);
     doc.line(14, 22, 196, 22);
 
@@ -254,6 +258,19 @@ export function PedidoPublicoPage() {
 
         <form onSubmit={aoSubmeter}>
           <section>
+            <div className="section-title">Tipo de Solicitação</div>
+            <div className="grid-pub grid-pub-2">
+              <div className="form-group">
+                <label htmlFor="pp-tipo">Entrega ou Devolução? *</label>
+                <select id="pp-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as TipoPedido)} required>
+                  <option value="entrega">Entrega (pedir material ao almoxarifado)</option>
+                  <option value="devolucao">Devolução (devolver material ao almoxarifado)</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section>
             <div className="section-title">Identificação do Setor</div>
             <div className="grid-pub grid-pub-2">
               <div className="form-group">
@@ -282,7 +299,7 @@ export function PedidoPublicoPage() {
           </section>
 
           <section>
-            <div className="section-title">Itens Requisitados</div>
+            <div className="section-title">{tipo === 'devolucao' ? 'Itens para Devolução' : 'Itens Requisitados'}</div>
 
             <div className="form-group">
               <label htmlFor="pp-busca">Buscar Material no Estoque</label>
@@ -396,7 +413,7 @@ export function PedidoPublicoPage() {
           </section>
 
           <button type="submit" className="btn-acao" disabled={enviando || carregandoCatalogo || !!erroCarga}>
-            {enviando ? 'Enviando…' : 'Confirmar Pedido de Material'}
+            {enviando ? 'Enviando…' : tipo === 'devolucao' ? 'Confirmar Devolução de Material' : 'Confirmar Pedido de Material'}
           </button>
         </form>
       </div>
@@ -416,10 +433,12 @@ export function PedidoPublicoPage() {
             {!enviando && resultado && (
               <div>
                 <div className="pp-modal-header" style={{ color: 'var(--fesf-mint)' }}>
-                  Pedido Registrado!
+                  {resultado.tipo === 'devolucao' ? 'Devolução Registrada!' : 'Pedido Registrado!'}
                 </div>
                 <div className="pp-modal-body">
-                  O seu pedido foi gerado com sucesso sob o protocolo:
+                  {resultado.tipo === 'devolucao'
+                    ? 'A sua devolução foi registrada com sucesso sob o protocolo:'
+                    : 'O seu pedido foi gerado com sucesso sob o protocolo:'}
                   <span className="protocolo-numero">#{resultado.id}</span>
                   Guarde este número — ele não exige login para consultar depois.
                 </div>

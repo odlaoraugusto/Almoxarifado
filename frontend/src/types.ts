@@ -13,6 +13,12 @@ export type Perfil = 'coordenador' | 'atendente' | 'admin';
 
 export type StatusPedido = 'pendente' | 'parcial' | 'executado';
 
+/** `entrega` (padrão): o setor pede material — baixa estoque na
+ * conferência. `devolucao` (2026-09-01, pedido do cliente): o setor
+ * devolve material — a conferência CRIA lote(s) novo(s) em vez de
+ * baixar. */
+export type TipoPedido = 'entrega' | 'devolucao';
+
 export type OrigemLote = 'compra' | 'doacao' | 'emprestimo';
 
 /** Lista fechada — antes era texto livre no cadastro do item. */
@@ -178,12 +184,26 @@ export interface PedidoItemPayload {
   quantidade: number;
 }
 
-/** Corpo do POST público (sem auth) — o "pedido de material" do setor. */
+/** Corpo do POST público (sem auth) — o "pedido de material" do setor.
+ * `tipo` omitido = 'entrega' (padrão no backend). */
 export interface PedidoCriarPayload {
   setor_id: number;
   responsavel_solicitante: string;
   observacao?: string;
+  tipo?: TipoPedido;
   itens: PedidoItemPayload[];
+}
+
+/** Um lote consumido (FEFO) pra dar baixa neste item de pedido — pode
+ * haver mais de um se o saldo de um lote só não bastou. Sobretudo
+ * importante quando houve substituição: mostra de qual lote/validade do
+ * item ENTREGUE saiu a baixa. Só vem preenchido no relatório de Pedidos
+ * (`GET /relatorios/pedidos`), não na tela operacional de conferência. */
+export interface LoteConsumoOut {
+  lote_id: number;
+  numero_lote: string | null;
+  data_validade: string | null;
+  quantidade: number;
 }
 
 export interface PedidoItemOut {
@@ -196,6 +216,7 @@ export interface PedidoItemOut {
   item_entregue?: ItemPublico | null;
   quantidade_entregue: number | null;
   motivo_substituicao: string | null;
+  lotes_consumidos?: LoteConsumoOut[];
 }
 
 export interface PedidoOut {
@@ -204,6 +225,7 @@ export interface PedidoOut {
   setor?: Setor;
   responsavel_solicitante: string;
   observacao: string | null;
+  tipo: TipoPedido;
   data_hora: string;
   status: StatusPedido;
   data_execucao: string | null;
@@ -216,11 +238,20 @@ export interface PedidoOut {
  * `item_id_entregue` omitido = entrega normal (mesmo item solicitado).
  * Preenchido com outro item do catálogo = substituição — nesse caso
  * `motivo_substituicao` é obrigatório (validado no backend). Qualquer
- * perfil autenticado pode substituir, mesma regra de quem já confere. */
+ * perfil autenticado pode substituir, mesma regra de quem já confere.
+ *
+ * `numero_lote`/`data_validade`/`valor_unitario` (2026-09-01, pedido do
+ * cliente) só valem quando o PEDIDO é `tipo=devolucao` — descrevem o
+ * lote novo criado pela devolução, todos opcionais (nem todo material
+ * tem lote formal ou vencimento). Sem efeito numa conferência de
+ * `tipo=entrega`. */
 export interface ConferirItemPayload {
   quantidade_entregue: number;
   item_id_entregue?: number;
   motivo_substituicao?: string;
+  numero_lote?: string;
+  data_validade?: string;
+  valor_unitario?: string;
 }
 
 /** O backend calcula o delta a partir de `quantidade_nova` contra o
@@ -270,11 +301,17 @@ export interface RelatorioPedidosOut {
   itens: PedidoOut[];
 }
 
+/** Uma linha por lote com saldo — item sem nenhum lote de saldo vem como
+ * uma linha só, com os campos de lote nulos. */
 export interface RelatorioEstoqueItem {
   item_id: number;
   codigo: string;
   nome: string;
   categoria: CategoriaItem;
+  lote_id: number | null;
+  numero_lote: string | null;
+  data_validade: string | null;
+  quantidade_lote: number | null;
   estoque_atual: number;
   estoque_minimo: number;
   critico: boolean;

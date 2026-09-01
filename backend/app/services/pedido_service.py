@@ -3,7 +3,9 @@ from datetime import date, datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.enums import StatusPedidoEnum
+from app.models.enums import OrigemEnum, StatusPedidoEnum, TipoMovimentacaoEnum, TipoPedidoEnum
+from app.models.lote import Lote
+from app.models.movimentacao import Movimentacao
 from app.models.pedido import Pedido
 from app.models.pedido_item import PedidoItem
 from app.repositories.item_repository import ItemRepository
@@ -62,6 +64,7 @@ class PedidoService:
             setor_id=setor.id,
             responsavel_solicitante=dados.responsavel_solicitante.strip(),
             observacao=dados.observacao.strip() if dados.observacao else None,
+            tipo=dados.tipo,
             status=StatusPedidoEnum.pendente,
             itens=itens_pedido,
         )
@@ -136,18 +139,45 @@ class PedidoService:
                 detail=f"Item id={item_id_final} não encontrado ou inativo.",
             )
 
-        # quantidade_entregue=0 registra "não atendido" (item indisponível)
-        # sem tocar em estoque.
+        # quantidade_entregue=0 registra "não atendido"/"não recebido de
+        # volta" sem tocar em estoque. Direção do movimento depende do
+        # TIPO do pedido (2026-09-01, pedido do cliente): "entrega" baixa
+        # via FEFO como sempre; "devolucao" CRIA um lote novo (o setor
+        # está devolvendo material, não pedindo) — mesmo padrão de
+        # `ItemService.registrar_entrada`/`EmprestimoService.
+        # _processar_entrada`, só que aqui o lote nasce de uma
+        # conferência de pedido em vez de uma Entrada avulsa.
         if dados.quantidade_entregue > 0:
-            consumir_fefo(
-                db,
-                self.lote_repository,
-                self.movimentacao_repository,
-                usuario.id,
-                item.id,
-                dados.quantidade_entregue,
-                pedido_item_id=pedido_item.id,
-            )
+            if pedido_item.pedido.tipo == TipoPedidoEnum.devolucao:
+                lote = Lote(
+                    item_id=item.id,
+                    numero_lote=dados.numero_lote,
+                    data_validade=dados.data_validade,
+                    quantidade_atual=dados.quantidade_entregue,
+                    valor_unitario=dados.valor_unitario,
+                    origem=OrigemEnum.devolucao,
+                    usuario_entrada_id=usuario.id,
+                )
+                lote = self.lote_repository.create(db, lote)
+
+                movimentacao = Movimentacao(
+                    tipo=TipoMovimentacaoEnum.entrada,
+                    lote_id=lote.id,
+                    quantidade=dados.quantidade_entregue,
+                    pedido_item_id=pedido_item.id,
+                    usuario_id=usuario.id,
+                )
+                self.movimentacao_repository.create(db, movimentacao)
+            else:
+                consumir_fefo(
+                    db,
+                    self.lote_repository,
+                    self.movimentacao_repository,
+                    usuario.id,
+                    item.id,
+                    dados.quantidade_entregue,
+                    pedido_item_id=pedido_item.id,
+                )
 
         pedido_item.item_id_entregue = item.id
         pedido_item.quantidade_entregue = dados.quantidade_entregue

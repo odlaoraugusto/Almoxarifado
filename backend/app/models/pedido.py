@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database.database import Base
-from app.models.enums import StatusPedidoEnum
+from app.models.enums import StatusPedidoEnum, TipoPedidoEnum
 
 
 class Pedido(Base):
@@ -17,6 +17,18 @@ class Pedido(Base):
     setor_id = Column(Integer, ForeignKey("setores.id"), nullable=False, index=True)
     responsavel_solicitante = Column(String(150), nullable=False)
     observacao = Column(Text, nullable=True)
+
+    # 2026-09-01, pedido do cliente: "entrega" (padrão) é o pedido de
+    # sempre — o setor pede material, a conferência baixa estoque.
+    # "devolucao" inverte o sentido: o setor está devolvendo material, a
+    # conferência CRIA lote(s) novo(s) em vez de baixar (ver
+    # PedidoService.conferir_item).
+    tipo = Column(
+        Enum(TipoPedidoEnum, name="tipo_pedido_enum", native_enum=False, length=15),
+        nullable=False,
+        default=TipoPedidoEnum.entrega,
+        server_default=TipoPedidoEnum.entrega.value,
+    )
 
     data_hora = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
