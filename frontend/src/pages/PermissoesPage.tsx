@@ -13,6 +13,7 @@ const LINHA_VAZIA: LinhaEditavel = {
   gerenciar_setores: false,
   gestao_usuarios: false,
   relatorio_movimentacoes: false,
+  descarte_vencimento: false,
 };
 
 const ACOES: { chave: keyof LinhaEditavel; rotulo: string; ajuda: string }[] = [
@@ -40,6 +41,11 @@ const ACOES: { chave: keyof LinhaEditavel; rotulo: string; ajuda: string }[] = [
     chave: 'relatorio_movimentacoes',
     rotulo: 'Relatório de movimentações',
     ajuda: 'Ver a trilha de auditoria completa (todas as entradas/saídas/ajustes).',
+  },
+  {
+    chave: 'descarte_vencimento',
+    rotulo: 'Dar baixa por vencimento',
+    ajuda: 'Registrar perda de lote vencido, reduzindo o saldo (trilha própria, separada de Ajuste de contagem física).',
   },
 ];
 

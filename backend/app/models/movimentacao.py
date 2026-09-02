@@ -48,6 +48,13 @@ class Movimentacao(Base):
     # contagem física). Nulo para entrada/saida.
     motivo_ajuste = Column(Text, nullable=True)
 
+    # Obrigatório (validado no service) quando tipo=descarte — motivo da
+    # baixa por vencimento (2026-09-02, pedido do cliente). Coluna
+    # separada de `motivo_ajuste` porque são trilhas conceitualmente
+    # diferentes (perda por vencimento x correção de contagem), mesmo
+    # os dois sendo texto livre.
+    motivo_descarte = Column(Text, nullable=True)
+
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
 
     data_hora = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -9,6 +9,7 @@ import { PainelPage } from './pages/PainelPage';
 import { EstoquePage } from './pages/EstoquePage';
 import { EntradaCompraPage } from './pages/EntradaCompraPage';
 import { EmprestimosPage } from './pages/EmprestimosPage';
+import { SaidaPage } from './pages/SaidaPage';
 import { SetoresPage } from './pages/SetoresPage';
 import { RelatoriosPage } from './pages/RelatoriosPage';
 import { UsuariosPage } from './pages/UsuariosPage';
@@ -29,6 +30,7 @@ function App() {
                 <Route path="/estoque" element={<EstoquePage />} />
                 <Route path="/entrada-compra" element={<EntradaCompraPage />} />
                 <Route path="/emprestimos" element={<EmprestimosPage />} />
+                <Route path="/saida" element={<SaidaPage />} />
                 <Route path="/setores" element={<SetoresPage />} />
                 <Route path="/relatorios" element={<RelatoriosPage />} />
                 <Route path="/usuarios" element={<UsuariosPage />} />

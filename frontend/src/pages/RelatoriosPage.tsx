@@ -400,7 +400,7 @@ function PreviaTabela({
               <td>{m.lote.item.nome}</td>
               <td className="mono">{m.lote.numero_lote ?? '—'}</td>
               <td className="num">{m.quantidade}</td>
-              <td>{m.motivo_ajuste ?? '—'}</td>
+              <td>{m.motivo_ajuste ?? m.motivo_descarte ?? '—'}</td>
               <td>{m.usuario.nome}</td>
             </tr>
           ))}

@@ -174,7 +174,7 @@ def tabela_vencimentos(relatorio: RelatorioVencimentosOut) -> TabelaRelatorio:
 
 
 def tabela_movimentacoes(relatorio: RelatorioMovimentacoesOut) -> TabelaRelatorio:
-    colunas = ["Data/Hora", "Tipo", "Item", "Nº Lote", "Quantidade", "Motivo Ajuste", "Usuário"]
+    colunas = ["Data/Hora", "Tipo", "Item", "Nº Lote", "Quantidade", "Motivo", "Usuário"]
     linhas = [
         [
             formatar_data_hora(m.data_hora),
@@ -182,7 +182,10 @@ def tabela_movimentacoes(relatorio: RelatorioMovimentacoesOut) -> TabelaRelatori
             m.lote.item.nome,
             _texto(m.lote.numero_lote),
             str(m.quantidade),
-            _texto(m.motivo_ajuste),
+            # `motivo_ajuste` (correção de contagem) e `motivo_descarte`
+            # (baixa por vencimento, 2026-09-02) nunca vêm preenchidos
+            # juntos — colunas separadas no banco, mesma coluna aqui.
+            _texto(m.motivo_ajuste or m.motivo_descarte),
             m.usuario.nome,
         ]
         for m in relatorio.itens

@@ -64,6 +64,12 @@ export function Layout() {
               <span className="ic">⇄</span>
               <span className="lbl">Empréstimos/Permutas</span>
             </NavLink>
+            {permissoes.descarteVencimento && (
+              <NavLink to="/saida" className="nav-btn">
+                <span className="ic">⇠</span>
+                <span className="lbl">Saída</span>
+              </NavLink>
+            )}
             {permissoes.gerenciarSetores && (
               <NavLink to="/setores" className="nav-btn">
                 <span className="ic">◫</span>

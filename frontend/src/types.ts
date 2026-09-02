@@ -24,7 +24,9 @@ export type OrigemLote = 'compra' | 'doacao' | 'emprestimo';
 /** Lista fechada — antes era texto livre no cadastro do item. */
 export type CategoriaItem = 'material_medico' | 'epi' | 'higienizacao' | 'expediente' | 'enxoval';
 
-export type TipoMovimentacao = 'entrada' | 'saida' | 'ajuste';
+// `descarte` (2026-09-02, pedido do cliente): baixa de lote vencido —
+// trilha própria, separada de `ajuste` (correção de contagem física).
+export type TipoMovimentacao = 'entrada' | 'saida' | 'ajuste' | 'descarte';
 
 export interface TokenResponse {
   access_token: string;
@@ -58,6 +60,7 @@ export interface PermissaoPerfil {
   gerenciar_setores: boolean;
   gestao_usuarios: boolean;
   relatorio_movimentacoes: boolean;
+  descarte_vencimento: boolean;
 }
 
 export interface Setor {
@@ -263,6 +266,15 @@ export interface AjusteCriarPayload {
   motivo_ajuste: string;
 }
 
+/** Corpo do `POST /descartes` — baixa de lote vencido (2026-09-02,
+ * pedido do cliente). Sempre reduz o saldo do lote informado; `lote_id`
+ * é sempre explícito (nunca resolvido por FEFO a partir de um item). */
+export interface DescarteCriarPayload {
+  lote_id: number;
+  quantidade: number;
+  motivo_descarte: string;
+}
+
 /** Corpo do `PUT /lotes/{id}` — só corrige o valor unitário (ex.:
  * entrada lançada sem preço). Nunca mexe em quantidade. */
 export interface LoteAtualizarPayload {
@@ -278,6 +290,7 @@ export interface MovimentacaoOut {
   pedido_item_id: number | null;
   emprestimo_id: number | null;
   motivo_ajuste: string | null;
+  motivo_descarte: string | null;
   usuario_id: number;
   usuario_nome?: string;
   data_hora: string;
@@ -347,6 +360,7 @@ export interface RelatorioMovimentacaoItem {
   pedido_item_id: number | null;
   emprestimo_id: number | null;
   motivo_ajuste: string | null;
+  motivo_descarte: string | null;
   usuario_id: number;
   usuario: { id: number; nome: string; perfil: Perfil };
   data_hora: string;

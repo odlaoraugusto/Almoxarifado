@@ -18,6 +18,21 @@ class AjusteCreate(BaseModel):
     motivo_ajuste: str
 
 
+class DescarteCreate(BaseModel):
+    """Baixa de lote vencido (2026-09-02, pedido do cliente) — sempre
+    reduz o saldo do lote informado (nunca aceita um "novo saldo" pra
+    cima como o Ajuste); motivo obrigatório pra manter a trilha de
+    auditoria explicável. `lote_id` é sempre explícito, nunca resolvido
+    por FEFO a partir de um item — baixa por vencimento precisa mirar
+    exatamente o lote vencido, não o que "vence primeiro" entre todos os
+    lotes do item (ver `app/services/consumo_fefo.py`, usado só pros
+    fluxos de consumo normal de Pedido/Empréstimo)."""
+
+    lote_id: int
+    quantidade: int = Field(gt=0)
+    motivo_descarte: str
+
+
 class MovimentacaoOut(BaseModel):
     id: int
     tipo: TipoMovimentacaoEnum
@@ -26,6 +41,7 @@ class MovimentacaoOut(BaseModel):
     pedido_item_id: int | None
     emprestimo_id: int | None
     motivo_ajuste: str | None
+    motivo_descarte: str | None
     usuario_id: int
     data_hora: datetime
 

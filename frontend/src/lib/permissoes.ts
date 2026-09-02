@@ -29,6 +29,10 @@ export function permissoesDe(usuario: UsuarioMe | null, matriz: PermissaoPerfil[
     // Relatório de movimentações / trilha de auditoria completa.
     relatorioMovimentacoes: ehAdmin || linha?.relatorio_movimentacoes === true,
 
+    // Baixa de lote por vencimento (2026-09-02, pedido do cliente) —
+    // trilha própria, separada de Ajuste (correção de contagem física).
+    descarteVencimento: ehAdmin || linha?.descarte_vencimento === true,
+
     // Tela /permissoes — exclusiva do Admin, nunca configurável.
     gerenciarPermissoes: ehAdmin,
   };

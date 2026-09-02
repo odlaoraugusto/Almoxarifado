@@ -22,3 +22,4 @@ class PermissaoPerfil(Base):
     gerenciar_setores = Column(Boolean, nullable=False, server_default="false")
     gestao_usuarios = Column(Boolean, nullable=False, server_default="false")
     relatorio_movimentacoes = Column(Boolean, nullable=False, server_default="false")
+    descarte_vencimento = Column(Boolean, nullable=False, server_default="false")

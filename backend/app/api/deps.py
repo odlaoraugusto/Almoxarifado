@@ -27,6 +27,7 @@ _CHAVES_PERMISSAO_VALIDAS = {
     "gerenciar_setores",
     "gestao_usuarios",
     "relatorio_movimentacoes",
+    "descarte_vencimento",
 }
 
 

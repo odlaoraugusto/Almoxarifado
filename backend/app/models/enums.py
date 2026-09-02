@@ -75,3 +75,8 @@ class TipoMovimentacaoEnum(str, enum.Enum):
     entrada = "entrada"
     saida = "saida"
     ajuste = "ajuste"
+    # Baixa de lote vencido (2026-09-02, pedido do cliente) — trilha
+    # própria, separada de `ajuste` (que é correção de contagem física,
+    # pode ir pra cima ou pra baixo). Descarte SEMPRE reduz, sempre com
+    # `motivo_descarte` preenchido (ver DescarteService.descartar).
+    descarte = "descarte"

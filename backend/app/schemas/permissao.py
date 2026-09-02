@@ -10,6 +10,7 @@ class PermissaoPerfilOut(BaseModel):
     gerenciar_setores: bool
     gestao_usuarios: bool
     relatorio_movimentacoes: bool
+    descarte_vencimento: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -20,6 +21,7 @@ class PermissaoPerfilUpdate(BaseModel):
     gerenciar_setores: bool
     gestao_usuarios: bool
     relatorio_movimentacoes: bool
+    descarte_vencimento: bool
 
 
 class MatrizPermissoesUpdate(BaseModel):
