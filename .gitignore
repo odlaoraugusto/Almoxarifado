@@ -4,3 +4,7 @@
 /.env
 !.env.vps.example
 !.env.local.example
+
+# Log de atividade do serviço em produção (NSSM AppStdout/AppStderr,
+# 2026-09-04) — operacional, não faz parte do código.
+backend/logs/
