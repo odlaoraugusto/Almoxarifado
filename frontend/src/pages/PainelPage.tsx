@@ -755,6 +755,25 @@ export function PainelPage() {
                           />
                         </div>
                       </div>
+                      {detalhe.tipo !== 'devolucao' &&
+                        (() => {
+                          // Saldo disponível do item ORIGINAL solicitado
+                          // (2026-09-08, pedido do cliente: "não mostra o
+                          // saldo disponível" — quem confere só descobria
+                          // que faltava estoque depois de tentar e tomar
+                          // 400). Mesmo mapa já usado pra sugerir lote de
+                          // substituto (linha ~113), reaproveitado aqui
+                          // pro item pedido de verdade, não só pro
+                          // substituto.
+                          const saldo = loteFefoPorItem.get(it.item_id_solicitado)?.saldoTotal ?? 0;
+                          const insuficiente = saldo < it.quantidade_solicitada;
+                          return (
+                            <p className={`note ${insuficiente ? 'danger' : ''}`} style={{ marginTop: 4 }}>
+                              Saldo disponível em estoque: <strong>{saldo}</strong>
+                              {insuficiente && ' — não dá pra atender a quantidade solicitada inteira'}
+                            </p>
+                          );
+                        })()}
 
                       {detalhe.tipo === 'devolucao' && (
                         <div className="grid" style={{ marginTop: 8 }}>
