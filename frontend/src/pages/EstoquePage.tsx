@@ -4,7 +4,18 @@ import { useAuth } from '../context/AuthContext';
 import { api, mensagemErro } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
-import { CATEGORIAS_ITEM, diasAteVencer, formatarData, formatarMoeda, labelCategoriaItem, labelOrigemLote, nivelValidade, paraDecimalApi, paraInputPtBr } from '../lib/formato';
+import {
+  CATEGORIAS_ITEM,
+  diasAteVencer,
+  formatarData,
+  formatarMoeda,
+  labelCategoriaItem,
+  labelOrigemLote,
+  nivelValidade,
+  normalizarBusca,
+  paraDecimalApi,
+  paraInputPtBr,
+} from '../lib/formato';
 import type { AjusteCriarPayload, CategoriaItem, ItemCriarPayload, ItemOut, LoteAtualizarPayload, LoteOut } from '../types';
 
 const FORM_ITEM_VAZIO = {
@@ -35,6 +46,12 @@ export function EstoquePage() {
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
   const [mostrarInativos, setMostrarInativos] = useState(false);
+  const [buscaLotes, setBuscaLotes] = useState('');
+
+  // Catálogo e Lotes em abas (2026-09-08, pedido do cliente — antes era
+  // tudo numa página só) — mesmo padrão de abas já usado em
+  // RelatoriosPage/SaidaPage (`tabs2`/`tab2`/`role="tablist"`).
+  const [aba, setAba] = useState<'catalogo' | 'lotes'>('catalogo');
 
   const carregar = useCallback(() => {
     if (!token) return;
@@ -57,10 +74,28 @@ export function EstoquePage() {
   }, [carregar]);
 
   const itensFiltrados = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
+    const termo = normalizarBusca(busca.trim());
     if (!termo) return itens;
-    return itens.filter((i) => i.nome.toLowerCase().includes(termo) || i.codigo.toLowerCase().includes(termo));
+    return itens.filter((i) => normalizarBusca(i.nome).includes(termo) || normalizarBusca(i.codigo).includes(termo));
   }, [itens, busca]);
+
+  // Lista de Lotes não tinha filtro nenhum — com centenas de lotes,
+  // achar o certo pra ajustar exigia rolar a página inteira (2026-09-01,
+  // pedido do cliente). Busca por nome/código do item ou nº do lote,
+  // mesmo padrão da busca do Catálogo acima.
+  const lotesFiltrados = useMemo(() => {
+    const termo = normalizarBusca(buscaLotes.trim());
+    if (!termo) return lotes;
+    return lotes.filter((l) => {
+      const nomeItem = l.item?.nome ?? itens.find((i) => i.id === l.item_id)?.nome ?? '';
+      const codigoItem = l.item?.codigo ?? itens.find((i) => i.id === l.item_id)?.codigo ?? '';
+      return (
+        normalizarBusca(nomeItem).includes(termo) ||
+        normalizarBusca(codigoItem).includes(termo) ||
+        normalizarBusca(l.numero_lote ?? '').includes(termo)
+      );
+    });
+  }, [lotes, itens, buscaLotes]);
 
   const itensCriticos = useMemo(
     () => itens.filter((i) => i.estoque_minimo > 0 && i.estoque_atual < i.estoque_minimo),
@@ -71,6 +106,11 @@ export function EstoquePage() {
     () =>
       lotes
         .filter((l) => {
+          // Lote zerado (saldo consumido/descartado) não deve seguir
+          // aparecendo como alerta de vencido (2026-09-09, pedido do
+          // cliente) — mesmo filtro que o relatório de Vencimentos do
+          // backend já usa (`lote_repository.listar_vencimento_proximo`).
+          if (l.quantidade_atual <= 0) return false;
           if (!l.data_validade) return false;
           const nivel = nivelValidade(diasAteVencer(l.data_validade));
           return nivel === 'vencido' || nivel === 'amarelo' || nivel === 'roxo';
@@ -87,6 +127,7 @@ export function EstoquePage() {
     let entre30e60 = 0;
     let semUrgencia = 0;
     for (const l of lotes) {
+      if (l.quantidade_atual <= 0) continue;
       if (!l.data_validade) continue;
       switch (nivelValidade(diasAteVencer(l.data_validade))) {
         case 'vencido':
@@ -264,415 +305,496 @@ export function EstoquePage() {
       {erro && <Alerta tipo="erro">{erro}</Alerta>}
       {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
 
-      <div className="tiles">
-        <div className="tile">
-          <div className="k">Itens em estoque crítico</div>
-          <div className={`v ${itensCriticos.length > 0 ? 'warn' : ''}`}>{carregando ? '—' : itensCriticos.length}</div>
-        </div>
-        <div className="tile">
-          <div className="k">Lotes vencidos ou vencendo (60d)</div>
-          <div className={`v ${lotesVencendo.length > 0 ? 'warn' : ''}`}>{carregando ? '—' : lotesVencendo.length}</div>
-        </div>
-        <div className="tile">
-          <div className="k">Itens ativos no catálogo</div>
-          <div className="v">{carregando ? '—' : itens.filter((i) => i.ativo).length}</div>
-        </div>
+      <div className="tabs2" role="tablist">
+        <button type="button" role="tab" className="tab2" aria-selected={aba === 'catalogo'} onClick={() => setAba('catalogo')}>
+          Catálogo
+        </button>
+        <button type="button" role="tab" className="tab2" aria-selected={aba === 'lotes'} onClick={() => setAba('lotes')}>
+          Lotes
+        </button>
       </div>
 
-      <div className="tiles">
-        <div className="tile">
-          <div className="k">Vencidos</div>
-          <div className={`v ${contagemVencimento.vencidos > 0 ? 'warn' : ''}`}>
-            {carregando ? '—' : contagemVencimento.vencidos}
+      {aba === 'catalogo' && (
+        <>
+          <div className="tiles">
+            <div className={`tile ${itensCriticos.length > 0 ? 'warn' : ''}`}>
+              <div className="tile-top">
+                <span className="tile-icon">
+                  <svg className="ic">
+                    <use href="#i-bell" />
+                  </svg>
+                </span>
+                <span className="k">Itens em estoque crítico</span>
+              </div>
+              <div className={`v ${itensCriticos.length > 0 ? 'warn' : ''}`}>{carregando ? '—' : itensCriticos.length}</div>
+            </div>
+            <div className="tile">
+              <div className="tile-top">
+                <span className="tile-icon">
+                  <svg className="ic">
+                    <use href="#i-package" />
+                  </svg>
+                </span>
+                <span className="k">Itens ativos no catálogo</span>
+              </div>
+              <div className="v">{carregando ? '—' : itens.filter((i) => i.ativo).length}</div>
+            </div>
           </div>
-        </div>
-        <div className="tile">
-          <div className="k">Vence em até 30 dias</div>
-          <div className={`v ${contagemVencimento.ate30 > 0 ? 'warn' : ''}`}>
-            {carregando ? '—' : contagemVencimento.ate30}
-          </div>
-        </div>
-        <div className="tile">
-          <div className="k">Vence em 30–60 dias</div>
-          <div className={`v ${contagemVencimento.entre30e60 > 0 ? 'warn' : ''}`}>
-            {carregando ? '—' : contagemVencimento.entre30e60}
-          </div>
-        </div>
-        <div className="tile">
-          <div className="k">Sem urgência (60+ dias)</div>
-          <div className="v">{carregando ? '—' : contagemVencimento.semUrgencia}</div>
-        </div>
-      </div>
 
-      {itensCriticos.length > 0 && (
-        <div className="alerta-bloco alerta-critico">
-          <h3>Estoque crítico</h3>
-          <ul>
-            {itensCriticos.map((i) => (
-              <li key={i.id}>
-                {i.nome} — {i.estoque_atual} / mínimo {i.estoque_minimo}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {lotesVencendo.length > 0 && (
-        <div className="alerta-bloco alerta-critico">
-          <h3>Lotes vencidos ou vencendo</h3>
-          <ul>
-            {lotesVencendo.map((l) => {
-              const dias = diasAteVencer(l.data_validade!);
-              const nivel = nivelValidade(dias);
-              const nomeItem = l.item?.nome ?? itens.find((i) => i.id === l.item_id)?.nome ?? `#${l.item_id}`;
-              return (
-                <li key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {nivel === 'vencido' && <span className="pill danger">venceu há {Math.abs(dias)}d</span>}
-                  {nivel === 'amarelo' && <span className="pill pend">vence em {dias}d</span>}
-                  {nivel === 'roxo' && <span className="pill roxo">vence em {dias}d</span>}
-                  <span>
-                    {nomeItem}
-                    {l.numero_lote ? ` — lote ${l.numero_lote}` : ''} ({l.quantidade_atual} un.)
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
-      {permissoes.gerenciarItens && (
-        <form className="panel" onSubmit={aoSubmeterItem}>
-          <h2>{editandoItemId == null ? 'Novo item do catálogo' : `Editando — ${formItem.nome}`}</h2>
-          <div className="grid">
-            <div className="field">
-              <label htmlFor="item-codigo">
-                Código <span className="req">*</span>
-              </label>
-              <input
-                id="item-codigo"
-                type="text"
-                value={formItem.codigo}
-                onChange={(e) => setFormItem((f) => ({ ...f, codigo: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="item-nome">
-                Nome <span className="req">*</span>
-              </label>
-              <input
-                id="item-nome"
-                type="text"
-                value={formItem.nome}
-                onChange={(e) => setFormItem((f) => ({ ...f, nome: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="item-apresentacao">
-                Apresentação <span className="tag">opcional</span>
-              </label>
-              <input
-                id="item-apresentacao"
-                type="text"
-                placeholder="ex.: Caixa c/ 100"
-                value={formItem.apresentacao}
-                onChange={(e) => setFormItem((f) => ({ ...f, apresentacao: e.target.value }))}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="item-fabricante">
-                Fabricante <span className="tag">opcional</span>
-              </label>
-              <input
-                id="item-fabricante"
-                type="text"
-                placeholder="ex.: Johnson & Johnson"
-                value={formItem.fabricante}
-                onChange={(e) => setFormItem((f) => ({ ...f, fabricante: e.target.value }))}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="item-categoria">
-                Categoria <span className="req">*</span>
-              </label>
-              <select
-                id="item-categoria"
-                value={formItem.categoria}
-                onChange={(e) => setFormItem((f) => ({ ...f, categoria: e.target.value as CategoriaItem }))}
-                required
-              >
-                {CATEGORIAS_ITEM.map((c) => (
-                  <option key={c} value={c}>
-                    {labelCategoriaItem(c)}
-                  </option>
+          {itensCriticos.length > 0 && (
+            <div className="alerta-bloco alerta-critico">
+              <h3>Estoque crítico</h3>
+              <ul>
+                {itensCriticos.map((i) => (
+                  <li key={i.id}>
+                    {i.nome} — {i.estoque_atual} / mínimo {i.estoque_minimo}
+                  </li>
                 ))}
-              </select>
+              </ul>
             </div>
-            <div className="field">
-              <label htmlFor="item-min">
-                Estoque mínimo <span className="tag">opcional — 0 se não preenchido</span>
-              </label>
-              <input
-                id="item-min"
-                type="number"
-                min={0}
-                placeholder="0"
-                value={formItem.estoque_minimo}
-                onChange={(e) => setFormItem((f) => ({ ...f, estoque_minimo: e.target.value }))}
-              />
+          )}
+
+          {permissoes.gerenciarItens && (
+            <form className="panel" onSubmit={aoSubmeterItem}>
+              <h2>{editandoItemId == null ? 'Novo item do catálogo' : `Editando — ${formItem.nome}`}</h2>
+              <div className="grid">
+                <div className="field">
+                  <label htmlFor="item-codigo">
+                    Código <span className="req">*</span>
+                  </label>
+                  <input
+                    id="item-codigo"
+                    type="text"
+                    value={formItem.codigo}
+                    onChange={(e) => setFormItem((f) => ({ ...f, codigo: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="item-nome">
+                    Nome <span className="req">*</span>
+                  </label>
+                  <input
+                    id="item-nome"
+                    type="text"
+                    value={formItem.nome}
+                    onChange={(e) => setFormItem((f) => ({ ...f, nome: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="item-apresentacao">
+                    Apresentação <span className="tag">opcional</span>
+                  </label>
+                  <input
+                    id="item-apresentacao"
+                    type="text"
+                    placeholder="ex.: Caixa c/ 100"
+                    value={formItem.apresentacao}
+                    onChange={(e) => setFormItem((f) => ({ ...f, apresentacao: e.target.value }))}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="item-fabricante">
+                    Fabricante <span className="tag">opcional</span>
+                  </label>
+                  <input
+                    id="item-fabricante"
+                    type="text"
+                    placeholder="ex.: Johnson & Johnson"
+                    value={formItem.fabricante}
+                    onChange={(e) => setFormItem((f) => ({ ...f, fabricante: e.target.value }))}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="item-categoria">
+                    Categoria <span className="req">*</span>
+                  </label>
+                  <select
+                    id="item-categoria"
+                    value={formItem.categoria}
+                    onChange={(e) => setFormItem((f) => ({ ...f, categoria: e.target.value as CategoriaItem }))}
+                    required
+                  >
+                    {CATEGORIAS_ITEM.map((c) => (
+                      <option key={c} value={c}>
+                        {labelCategoriaItem(c)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="item-min">
+                    Estoque mínimo <span className="tag">opcional — 0 se não preenchido</span>
+                  </label>
+                  <input
+                    id="item-min"
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    value={formItem.estoque_minimo}
+                    onChange={(e) => setFormItem((f) => ({ ...f, estoque_minimo: e.target.value }))}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="item-valor">
+                    Valor unitário <span className="tag">opcional — preço de referência</span>
+                  </label>
+                  <input
+                    id="item-valor"
+                    type="text"
+                    placeholder="0,00"
+                    value={formItem.valor_unitario}
+                    onChange={(e) => setFormItem((f) => ({ ...f, valor_unitario: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="actions">
+                <button type="submit" className="btn" disabled={salvandoItem}>
+                  {salvandoItem ? 'Salvando…' : editandoItemId == null ? 'Cadastrar item' : 'Salvar alterações'}
+                </button>
+                {editandoItemId != null && (
+                  <button type="button" className="btn ghost" onClick={cancelarEdicaoItem}>
+                    Cancelar edição
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+
+          <div className="panel">
+            <div className="panel-head-busca">
+              <h2>Catálogo</h2>
+              <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500, fontSize: 12.5 }}>
+                  <input type="checkbox" checked={mostrarInativos} onChange={(e) => setMostrarInativos(e.target.checked)} />
+                  Mostrar inativos
+                </label>
+                <input
+                  type="text"
+                  className="busca-estoque"
+                  placeholder="Buscar por código ou nome…"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="field">
-              <label htmlFor="item-valor">
-                Valor unitário <span className="tag">opcional — preço de referência</span>
-              </label>
-              <input
-                id="item-valor"
-                type="text"
-                placeholder="0,00"
-                value={formItem.valor_unitario}
-                onChange={(e) => setFormItem((f) => ({ ...f, valor_unitario: e.target.value }))}
-              />
-            </div>
-          </div>
-          <div className="actions">
-            <button type="submit" className="btn" disabled={salvandoItem}>
-              {salvandoItem ? 'Salvando…' : editandoItemId == null ? 'Cadastrar item' : 'Salvar alterações'}
-            </button>
-            {editandoItemId != null && (
-              <button type="button" className="btn ghost" onClick={cancelarEdicaoItem}>
-                Cancelar edição
-              </button>
+            {carregando && <p className="carregando">Carregando…</p>}
+            {!carregando && (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Nome</th>
+                      <th>Fabricante</th>
+                      <th>Categoria</th>
+                      <th className="num">Atual</th>
+                      <th className="num">Mínimo</th>
+                      <th className="num">Valor unit.</th>
+                      <th></th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itensFiltrados.length === 0 && (
+                      <tr>
+                        <td colSpan={9} className="vazio-tabela">
+                          Nenhum item encontrado.
+                        </td>
+                      </tr>
+                    )}
+                    {itensFiltrados.map((item) => {
+                      const critico = item.estoque_minimo > 0 && item.estoque_atual < item.estoque_minimo;
+                      return (
+                        <tr key={item.id}>
+                          <td className="mono">{item.codigo}</td>
+                          <td>
+                            {item.nome}
+                            {!item.ativo && <span className="pill muted" style={{ marginLeft: 8 }}>inativo</span>}
+                          </td>
+                          <td>{item.fabricante ?? '—'}</td>
+                          <td>{labelCategoriaItem(item.categoria)}</td>
+                          <td className="num">{item.estoque_atual}</td>
+                          <td className="num">{item.estoque_minimo}</td>
+                          <td className="num">{formatarMoeda(item.valor_unitario)}</td>
+                          <td>{critico && <span className="pill danger">crítico</span>}</td>
+                          <td style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            {permissoes.gerenciarItens && (
+                              <>
+                                <button type="button" className="btn ghost sm" onClick={() => iniciarEdicaoItem(item)}>
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`btn sm ${item.ativo ? 'danger' : 'ok'}`}
+                                  onClick={() => alternarAtivoItem(item)}
+                                >
+                                  {item.ativo ? 'Desativar' : 'Reativar'}
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
-        </form>
+        </>
       )}
 
-      {loteAjuste != null && (
-        <form className="panel" onSubmit={aoSubmeterAjuste}>
-          <h2>
-            Ajustar saldo — lote #{loteAjuste.id} <span className="screen-tag">saldo atual: {loteAjuste.quantidade_atual}</span>
-          </h2>
-          <div className="grid">
-            <div className="field">
-              <label htmlFor="aj-novo-saldo">
-                Novo saldo (contagem física) <span className="req">*</span>
-              </label>
-              <input
-                id="aj-novo-saldo"
-                type="number"
-                min={0}
-                value={novoSaldoAjuste}
-                onChange={(e) => setNovoSaldoAjuste(e.target.value)}
-                required
-              />
-              {diferencaAjuste != null && diferencaAjuste !== 0 && (
-                <span className={diferencaAjuste > 0 ? 'ajuste-positivo' : 'ajuste-negativo'}>
-                  diferença: {diferencaAjuste > 0 ? '+' : ''}
-                  {diferencaAjuste}
+      {aba === 'lotes' && (
+        <>
+          <div className="tiles">
+            <div className={`tile ${lotesVencendo.length > 0 ? 'warn' : ''}`}>
+              <div className="tile-top">
+                <span className="tile-icon">
+                  <svg className="ic">
+                    <use href="#i-bell" />
+                  </svg>
                 </span>
-              )}
-            </div>
-            <div className="field">
-              <label htmlFor="aj-motivo">
-                Motivo <span className="req">*</span>
-              </label>
-              <input id="aj-motivo" type="text" value={motivoAjuste} onChange={(e) => setMotivoAjuste(e.target.value)} required />
+                <span className="k">Lotes vencidos ou vencendo (60d)</span>
+              </div>
+              <div className={`v ${lotesVencendo.length > 0 ? 'warn' : ''}`}>{carregando ? '—' : lotesVencendo.length}</div>
             </div>
           </div>
-          <div className="actions">
-            <button
-              type="submit"
-              className="btn"
-              disabled={salvandoAjuste || !motivoAjuste.trim() || diferencaAjuste === 0 || diferencaAjuste === null}
-            >
-              {salvandoAjuste ? 'Registrando…' : 'Confirmar ajuste'}
-            </button>
-            <button type="button" className="btn ghost" onClick={() => setLoteAjuste(null)}>
-              Cancelar
-            </button>
-          </div>
-        </form>
-      )}
 
-      <div className="panel">
-        <div className="panel-head-busca">
-          <h2>Catálogo</h2>
-          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500, fontSize: 12.5 }}>
-              <input type="checkbox" checked={mostrarInativos} onChange={(e) => setMostrarInativos(e.target.checked)} />
-              Mostrar inativos
-            </label>
-            <input
-              type="text"
-              className="busca-estoque"
-              placeholder="Buscar por código ou nome…"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
+          <div className="tiles">
+            <div className={`tile ${contagemVencimento.vencidos > 0 ? 'warn' : ''}`}>
+              <div className="tile-top">
+                <span className="tile-icon">
+                  <svg className="ic">
+                    <use href="#i-clock" />
+                  </svg>
+                </span>
+                <span className="k">Vencidos</span>
+              </div>
+              <div className={`v ${contagemVencimento.vencidos > 0 ? 'warn' : ''}`}>
+                {carregando ? '—' : contagemVencimento.vencidos}
+              </div>
+            </div>
+            <div className={`tile ${contagemVencimento.ate30 > 0 ? 'warn' : ''}`}>
+              <div className="tile-top">
+                <span className="tile-icon">
+                  <svg className="ic">
+                    <use href="#i-clock" />
+                  </svg>
+                </span>
+                <span className="k">Vence em até 30 dias</span>
+              </div>
+              <div className={`v ${contagemVencimento.ate30 > 0 ? 'warn' : ''}`}>
+                {carregando ? '—' : contagemVencimento.ate30}
+              </div>
+            </div>
+            <div className={`tile ${contagemVencimento.entre30e60 > 0 ? 'warn' : ''}`}>
+              <div className="tile-top">
+                <span className="tile-icon">
+                  <svg className="ic">
+                    <use href="#i-clock" />
+                  </svg>
+                </span>
+                <span className="k">Vence em 30–60 dias</span>
+              </div>
+              <div className={`v ${contagemVencimento.entre30e60 > 0 ? 'warn' : ''}`}>
+                {carregando ? '—' : contagemVencimento.entre30e60}
+              </div>
+            </div>
+            <div className="tile ok">
+              <div className="tile-top">
+                <span className="tile-icon">
+                  <svg className="ic">
+                    <use href="#i-check" />
+                  </svg>
+                </span>
+                <span className="k">Sem urgência (60+ dias)</span>
+              </div>
+              <div className="v">{carregando ? '—' : contagemVencimento.semUrgencia}</div>
+            </div>
           </div>
-        </div>
-        {carregando && <p className="carregando">Carregando…</p>}
-        {!carregando && (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Nome</th>
-                  <th>Fabricante</th>
-                  <th>Categoria</th>
-                  <th className="num">Atual</th>
-                  <th className="num">Mínimo</th>
-                  <th className="num">Valor unit.</th>
-                  <th></th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {itensFiltrados.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="vazio-tabela">
-                      Nenhum item encontrado.
-                    </td>
-                  </tr>
-                )}
-                {itensFiltrados.map((item) => {
-                  const critico = item.estoque_minimo > 0 && item.estoque_atual < item.estoque_minimo;
+
+          {lotesVencendo.length > 0 && (
+            <div className="alerta-bloco alerta-critico">
+              <h3>Lotes vencidos ou vencendo</h3>
+              <ul>
+                {lotesVencendo.map((l) => {
+                  const dias = diasAteVencer(l.data_validade!);
+                  const nivel = nivelValidade(dias);
+                  const nomeItem = l.item?.nome ?? itens.find((i) => i.id === l.item_id)?.nome ?? `#${l.item_id}`;
                   return (
-                    <tr key={item.id}>
-                      <td className="mono">{item.codigo}</td>
-                      <td>
-                        {item.nome}
-                        {!item.ativo && <span className="pill muted" style={{ marginLeft: 8 }}>inativo</span>}
-                      </td>
-                      <td>{item.fabricante ?? '—'}</td>
-                      <td>{labelCategoriaItem(item.categoria)}</td>
-                      <td className="num">{item.estoque_atual}</td>
-                      <td className="num">{item.estoque_minimo}</td>
-                      <td className="num">{formatarMoeda(item.valor_unitario)}</td>
-                      <td>{critico && <span className="pill danger">crítico</span>}</td>
-                      <td style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        {permissoes.gerenciarItens && (
-                          <>
-                            <button type="button" className="btn ghost sm" onClick={() => iniciarEdicaoItem(item)}>
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              className={`btn sm ${item.ativo ? 'danger' : 'ok'}`}
-                              onClick={() => alternarAtivoItem(item)}
-                            >
-                              {item.ativo ? 'Desativar' : 'Reativar'}
-                            </button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
+                    <li key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {nivel === 'vencido' && <span className="pill danger">venceu há {Math.abs(dias)}d</span>}
+                      {nivel === 'amarelo' && <span className="pill pend">vence em {dias}d</span>}
+                      {nivel === 'roxo' && <span className="pill roxo">vence em {dias}d</span>}
+                      <span>
+                        {nomeItem}
+                        {l.numero_lote ? ` — lote ${l.numero_lote}` : ''} ({l.quantidade_atual} un.)
+                      </span>
+                    </li>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              </ul>
+            </div>
+          )}
 
-      <div className="panel">
-        <h2>Lotes</h2>
-        {carregando && <p className="carregando">Carregando…</p>}
-        {!carregando && (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Lote</th>
-                  <th>Validade</th>
-                  <th className="num">Qtd.</th>
-                  <th className="num">Valor unit.</th>
-                  <th>Origem</th>
-                  <th></th>
-                  {permissoes.ajustarEstoque && <th></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {lotes.length === 0 && (
-                  <tr>
-                    <td colSpan={permissoes.ajustarEstoque ? 8 : 7} className="vazio-tabela">
-                      Nenhum lote registrado.
-                    </td>
-                  </tr>
-                )}
-                {lotes.map((lote) => {
-                  const nomeItem = lote.item?.nome ?? itens.find((i) => i.id === lote.item_id)?.nome ?? `#${lote.item_id}`;
-                  const dias = lote.data_validade ? diasAteVencer(lote.data_validade) : null;
-                  const nivel = dias !== null ? nivelValidade(dias) : null;
-                  return (
-                    <tr key={lote.id}>
-                      <td>{nomeItem}</td>
-                      <td className="mono">{lote.numero_lote ?? '—'}</td>
-                      <td>{formatarData(lote.data_validade)}</td>
-                      <td className="num">{lote.quantidade_atual}</td>
-                      <td className="num">
-                        {loteEditandoValorId === lote.id ? (
-                          <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'flex-end' }}>
-                            <input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              className="qtd-input"
-                              style={{ width: 90 }}
-                              autoFocus
-                              value={valorUnitarioEdit}
-                              onChange={(e) => setValorUnitarioEdit(e.target.value)}
-                            />
-                            <button
-                              type="button"
-                              className="btn ghost sm"
-                              disabled={salvandoValorUnitario}
-                              onClick={() => salvarValorUnitario(lote.id)}
-                            >
-                              {salvandoValorUnitario ? '…' : 'Salvar'}
-                            </button>
-                            <button type="button" className="btn ghost sm" onClick={cancelarEdicaoValor}>
-                              Cancelar
-                            </button>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
-                            {formatarMoeda(lote.valor_unitario)}
-                            {permissoes.gerenciarItens && (
-                              <button type="button" className="btn ghost sm" onClick={() => abrirEdicaoValor(lote)}>
-                                Editar
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      <td>{labelOrigemLote(lote.origem)}</td>
-                      <td>
-                        {nivel === 'vencido' && <span className="pill danger">venceu há {Math.abs(dias ?? 0)}d</span>}
-                        {nivel === 'amarelo' && <span className="pill pend">vence em {dias}d</span>}
-                        {nivel === 'roxo' && <span className="pill roxo">vence em {dias}d</span>}
-                        {nivel === 'ok' && <span className="pill ok">ok</span>}
-                        {nivel === null && <span className="pill muted">não vence</span>}
-                      </td>
-                      {permissoes.ajustarEstoque && (
-                        <td>
-                          <button type="button" className="btn ghost sm" onClick={() => abrirAjuste(lote)}>
-                            Ajustar
-                          </button>
+          {loteAjuste != null && (
+            <form className="panel" onSubmit={aoSubmeterAjuste}>
+              <h2>
+                Ajustar saldo — lote #{loteAjuste.id} <span className="screen-tag">saldo atual: {loteAjuste.quantidade_atual}</span>
+              </h2>
+              <div className="grid">
+                <div className="field">
+                  <label htmlFor="aj-novo-saldo">
+                    Novo saldo (contagem física) <span className="req">*</span>
+                  </label>
+                  <input
+                    id="aj-novo-saldo"
+                    type="number"
+                    min={0}
+                    value={novoSaldoAjuste}
+                    onChange={(e) => setNovoSaldoAjuste(e.target.value)}
+                    required
+                  />
+                  {diferencaAjuste != null && diferencaAjuste !== 0 && (
+                    <span className={diferencaAjuste > 0 ? 'ajuste-positivo' : 'ajuste-negativo'}>
+                      diferença: {diferencaAjuste > 0 ? '+' : ''}
+                      {diferencaAjuste}
+                    </span>
+                  )}
+                </div>
+                <div className="field">
+                  <label htmlFor="aj-motivo">
+                    Motivo <span className="req">*</span>
+                  </label>
+                  <input id="aj-motivo" type="text" value={motivoAjuste} onChange={(e) => setMotivoAjuste(e.target.value)} required />
+                </div>
+              </div>
+              <div className="actions">
+                <button
+                  type="submit"
+                  className="btn"
+                  disabled={salvandoAjuste || !motivoAjuste.trim() || diferencaAjuste === 0 || diferencaAjuste === null}
+                >
+                  {salvandoAjuste ? 'Registrando…' : 'Confirmar ajuste'}
+                </button>
+                <button type="button" className="btn ghost" onClick={() => setLoteAjuste(null)}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="panel">
+            <div className="panel-head-busca">
+              <h2>Lotes</h2>
+              <input
+                type="text"
+                className="busca-estoque"
+                placeholder="Buscar por item, código ou nº do lote…"
+                value={buscaLotes}
+                onChange={(e) => setBuscaLotes(e.target.value)}
+              />
+            </div>
+            {carregando && <p className="carregando">Carregando…</p>}
+            {!carregando && (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Fabricante</th>
+                      <th>Lote</th>
+                      <th>Validade</th>
+                      <th className="num">Qtd.</th>
+                      <th className="num">Valor unit.</th>
+                      <th>Origem</th>
+                      <th></th>
+                      {permissoes.ajustarEstoque && <th></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lotesFiltrados.length === 0 && (
+                      <tr>
+                        <td colSpan={permissoes.ajustarEstoque ? 9 : 8} className="vazio-tabela">
+                          {lotes.length === 0 ? 'Nenhum lote registrado.' : 'Nenhum lote encontrado para essa busca.'}
                         </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </tr>
+                    )}
+                    {lotesFiltrados.map((lote) => {
+                      const nomeItem = lote.item?.nome ?? itens.find((i) => i.id === lote.item_id)?.nome ?? `#${lote.item_id}`;
+                      const fabricanteItem = lote.item?.fabricante ?? itens.find((i) => i.id === lote.item_id)?.fabricante ?? null;
+                      const dias = lote.data_validade ? diasAteVencer(lote.data_validade) : null;
+                      const nivel = dias !== null ? nivelValidade(dias) : null;
+                      return (
+                        <tr key={lote.id}>
+                          <td>{nomeItem}</td>
+                          <td>{fabricanteItem ?? '—'}</td>
+                          <td className="mono">{lote.numero_lote ?? '—'}</td>
+                          <td>{formatarData(lote.data_validade)}</td>
+                          <td className="num">{lote.quantidade_atual}</td>
+                          <td className="num">
+                            {loteEditandoValorId === lote.id ? (
+                              <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'flex-end' }}>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  className="qtd-input"
+                                  style={{ width: 90 }}
+                                  autoFocus
+                                  value={valorUnitarioEdit}
+                                  onChange={(e) => setValorUnitarioEdit(e.target.value)}
+                                />
+                                <button
+                                  type="button"
+                                  className="btn ghost sm"
+                                  disabled={salvandoValorUnitario}
+                                  onClick={() => salvarValorUnitario(lote.id)}
+                                >
+                                  {salvandoValorUnitario ? '…' : 'Salvar'}
+                                </button>
+                                <button type="button" className="btn ghost sm" onClick={cancelarEdicaoValor}>
+                                  Cancelar
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
+                                {formatarMoeda(lote.valor_unitario)}
+                                {permissoes.gerenciarItens && (
+                                  <button type="button" className="btn ghost sm" onClick={() => abrirEdicaoValor(lote)}>
+                                    Editar
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td>{labelOrigemLote(lote.origem)}</td>
+                          <td>
+                            {nivel === 'vencido' && <span className="pill danger">venceu há {Math.abs(dias ?? 0)}d</span>}
+                            {nivel === 'amarelo' && <span className="pill pend">vence em {dias}d</span>}
+                            {nivel === 'roxo' && <span className="pill roxo">vence em {dias}d</span>}
+                            {nivel === 'ok' && <span className="pill ok">ok</span>}
+                            {nivel === null && <span className="pill muted">não vence</span>}
+                          </td>
+                          {permissoes.ajustarEstoque && (
+                            <td>
+                              <button type="button" className="btn ghost sm" onClick={() => abrirAjuste(lote)}>
+                                Ajustar
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </section>
   );
 }

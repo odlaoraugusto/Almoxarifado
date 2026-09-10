@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ExigeSenhaAtualizada, RotaProtegida } from './components/RotaProtegida';
+import { IconSprite } from './components/IconSprite';
 import { Layout } from './components/Layout';
 import { PedidoPublicoPage } from './pages/PedidoPublicoPage';
 import { LoginPage } from './pages/LoginPage';
@@ -19,6 +20,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <IconSprite />
         <Routes>
           <Route path="/" element={<PedidoPublicoPage />} />
           <Route path="/login" element={<LoginPage />} />

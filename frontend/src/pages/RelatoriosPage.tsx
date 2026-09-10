@@ -291,6 +291,7 @@ function PreviaTabela({
             <tr>
               <th>Código</th>
               <th>Item</th>
+              <th>Fabricante</th>
               <th>Categoria</th>
               <th>Nº Lote</th>
               <th>Validade</th>
@@ -303,7 +304,7 @@ function PreviaTabela({
           <tbody>
             {relatorio.itens.length === 0 && (
               <tr>
-                <td colSpan={9} className="vazio-tabela">
+                <td colSpan={10} className="vazio-tabela">
                   Nenhum item no catálogo.
                 </td>
               </tr>
@@ -312,6 +313,7 @@ function PreviaTabela({
               <tr key={item.lote_id ?? `item-${item.item_id}`}>
                 <td className="mono">{item.codigo}</td>
                 <td>{item.nome}</td>
+                <td>{item.fabricante ?? '—'}</td>
                 <td>{labelCategoriaItem(item.categoria)}</td>
                 <td className="mono">{item.numero_lote ?? '—'}</td>
                 <td>{item.data_validade ? formatarData(item.data_validade) : '—'}</td>

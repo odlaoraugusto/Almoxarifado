@@ -38,63 +38,70 @@ export function LoginPage() {
 
   return (
     <div className="login-wrap">
-      <div className="topbar">
-        <div className="inst-id">
-          <span className="inst-org">{ORGANIZACAO}</span>
-          <span className="inst-hospital">{HOSPITAL}</span>
-        </div>
-        <span className="inst-div" />
-        <span className="inst-app">Almoxarifado</span>
-      </div>
-
-      <div className="login-main">
-        <div className="login-panels">
-          <div className="screen-head">
-            <h1>Acesso da equipe</h1>
-            <span className="screen-tag">almoxarifado</span>
+      <div className="login-split">
+        <div className="login-brand">
+          <div>
+            <div className="login-brand-mark">
+              <svg className="ic">
+                <use href="#i-package" />
+              </svg>
+            </div>
+            <h2>Solicitação de materiais do almoxarifado</h2>
+            <p>Acesso restrito à equipe do almoxarifado — coordenador e atendentes.</p>
           </div>
-          <p className="screen-sub">
-            Login exclusivo da equipe do almoxarifado. Quem precisa pedir material não precisa entrar aqui — use o
-            formulário público na página inicial.
-          </p>
+          <div className="login-brand-foot">
+            {ORGANIZACAO} · {HOSPITAL}
+          </div>
+          <div className="login-brand-ribbon" />
+        </div>
 
-          <form className="panel" onSubmit={aoSubmeter}>
-            <h2>Login</h2>
-            {erro && <Alerta tipo="erro">{erro}</Alerta>}
-            <div className="field">
-              <label htmlFor="login">
-                Login <span className="req">*</span>
-              </label>
-              <input
-                id="login"
-                type="text"
-                placeholder="usuario.nome"
-                value={login}
-                onChange={(e) => setLogin(e.target.value)}
-                autoComplete="username"
-                required
-              />
+        <div className="login-form-side">
+          <div className="login-panels">
+            <span className="login-step">ALMOXARIFADO</span>
+            <div className="screen-head">
+              <h1>Acesso da equipe</h1>
             </div>
-            <div className="field" style={{ marginTop: 12 }}>
-              <label htmlFor="senha">
-                Senha <span className="req">*</span>
-              </label>
-              <input
-                id="senha"
-                type="password"
-                placeholder="••••••••"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </div>
-            <div className="actions">
-              <button type="submit" className="btn" disabled={entrando}>
-                {entrando ? 'Entrando…' : 'Entrar'}
-              </button>
-            </div>
-          </form>
+            <form className="panel" onSubmit={aoSubmeter}>
+              <h2>Login</h2>
+              {erro && <Alerta tipo="erro">{erro}</Alerta>}
+              <div className="field">
+                <label htmlFor="login">
+                  Login <span className="req">*</span>
+                </label>
+                <input
+                  id="login"
+                  type="text"
+                  placeholder="usuario.nome"
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
+                  autoComplete="username"
+                  required
+                />
+              </div>
+              <div className="field" style={{ marginTop: 12 }}>
+                <label htmlFor="senha">
+                  Senha <span className="req">*</span>
+                </label>
+                <input
+                  id="senha"
+                  type="password"
+                  placeholder="••••••••"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
+              <div className="actions">
+                <button type="submit" className="btn" disabled={entrando}>
+                  <svg className="ic">
+                    <use href="#i-key" />
+                  </svg>
+                  {entrando ? 'Entrando…' : 'Entrar'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>

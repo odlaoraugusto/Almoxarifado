@@ -35,6 +35,7 @@ class RelatorioEstoqueItem(BaseModel):
     item_id: int
     codigo: str
     nome: str
+    fabricante: str | None
     categoria: str
     lote_id: int | None
     numero_lote: str | None

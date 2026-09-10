@@ -6,6 +6,7 @@ from app.models.item import Item
 from app.models.lote import Lote
 from app.models.movimentacao import Movimentacao
 from app.repositories.item_repository import ItemRepository
+from app.repositories.lote_repository import LoteRepository
 from app.repositories.movimentacao_repository import MovimentacaoRepository
 from app.schemas.item import ItemCreate, ItemOut, ItemUpdate
 from app.schemas.lote import EntradaCreate
@@ -20,6 +21,7 @@ class ItemService:
     def __init__(self):
         self.repository = ItemRepository()
         self.movimentacao_repository = MovimentacaoRepository()
+        self.lote_repository = LoteRepository()
 
     @staticmethod
     def _para_item_out(item: Item, estoque_por_item: dict[int, int]) -> ItemOut:
@@ -83,9 +85,13 @@ class ItemService:
     def registrar_entrada(
         self, db: Session, usuario: UsuarioMe, item_id: int, dados: EntradaCreate
     ) -> Lote:
-        """Entrada sempre cria um LOTE novo (nunca incrementa um lote já
-        existente) — cada recebimento é um evento próprio, rastreável por
-        si só, mesmo padrão do projeto irmão (farmácia)."""
+        """Se já existe um lote com a MESMA identidade física (item + nº
+        de lote + validade + origem + NF/AFM), soma nele em vez de criar
+        linha nova (2026-09-09, pedido do cliente: "se for o mesmo lote,
+        integra aquele estoque") — ver `LoteRepository.buscar_para_merge`
+        pro critério exato de "mesmo lote". Cria a `Movimentacao` de
+        qualquer forma, então o rastro de auditoria por evento continua
+        intacto mesmo quando o lote em si é reaproveitado."""
         item = self.obter(db, item_id)
 
         if not item.ativo:
@@ -94,20 +100,38 @@ class ItemService:
                 detail="Não é possível registrar entrada para um item inativo.",
             )
 
-        lote = Lote(
-            item_id=item.id,
-            numero_lote=dados.numero_lote,
-            data_validade=dados.data_validade,
-            quantidade_atual=dados.quantidade,
-            valor_unitario=dados.valor_unitario,
-            origem=dados.origem,
-            numero_nota_fiscal=dados.numero_nota_fiscal,
-            numero_afm=dados.numero_afm,
-            usuario_entrada_id=usuario.id,
-        )
-        db.add(lote)
-        db.commit()
-        db.refresh(lote)
+        lote = None
+        if dados.numero_lote and dados.data_validade:
+            lote = self.lote_repository.buscar_para_merge(
+                db,
+                item.id,
+                dados.numero_lote,
+                dados.data_validade,
+                dados.numero_nota_fiscal,
+                dados.numero_afm,
+            )
+
+        if lote is not None:
+            lote.quantidade_atual += dados.quantidade
+            if lote.valor_unitario is None and dados.valor_unitario is not None:
+                lote.valor_unitario = dados.valor_unitario
+            db.commit()
+            db.refresh(lote)
+        else:
+            lote = Lote(
+                item_id=item.id,
+                numero_lote=dados.numero_lote,
+                data_validade=dados.data_validade,
+                quantidade_atual=dados.quantidade,
+                valor_unitario=dados.valor_unitario,
+                origem=dados.origem,
+                numero_nota_fiscal=dados.numero_nota_fiscal,
+                numero_afm=dados.numero_afm,
+                usuario_entrada_id=usuario.id,
+            )
+            db.add(lote)
+            db.commit()
+            db.refresh(lote)
 
         movimentacao = Movimentacao(
             tipo=TipoMovimentacaoEnum.entrada,

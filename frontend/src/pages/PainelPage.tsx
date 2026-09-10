@@ -248,6 +248,12 @@ export function PainelPage() {
   const [edicoes, setEdicoes] = useState<Record<number, EdicaoItem>>({});
   const [confirmando, setConfirmando] = useState(false);
 
+  // Modal precisa de mais espaço quando a busca de item substituto está
+  // aberta (2026-09-08, pedido do cliente: "barra de seleção pequena e
+  // pouco prática") — a lista de sugestões do BuscaAutocomplete some
+  // demais no tamanho padrão de 640px.
+  const algumSubstituindo = Object.values(edicoes).some((e) => e.substituindo);
+
   function abrirModal(id: number) {
     setPedidoModalId(id);
     setErroDetalhe(null);
@@ -462,23 +468,58 @@ export function PainelPage() {
 
       <div className="tiles">
         <div className="tile">
-          <div className="k">Total de pedidos</div>
+          <div className="tile-top">
+            <span className="tile-icon">
+              <svg className="ic">
+                <use href="#i-clipboard" />
+              </svg>
+            </span>
+            <span className="k">Total de pedidos</span>
+          </div>
           <div className="v">{carregandoLista ? '—' : resumo.total}</div>
         </div>
-        <div className="tile">
-          <div className="k">Pendentes</div>
+        <div className={`tile ${resumo.pendentes > 0 ? 'warn' : ''}`}>
+          <div className="tile-top">
+            <span className="tile-icon">
+              <svg className="ic">
+                <use href="#i-bell" />
+              </svg>
+            </span>
+            <span className="k">Pendentes</span>
+          </div>
           <div className={`v ${resumo.pendentes > 0 ? 'warn' : ''}`}>{carregandoLista ? '—' : resumo.pendentes}</div>
         </div>
         <div className="tile">
-          <div className="k">Parciais</div>
+          <div className="tile-top">
+            <span className="tile-icon">
+              <svg className="ic">
+                <use href="#i-swap" />
+              </svg>
+            </span>
+            <span className="k">Parciais</span>
+          </div>
           <div className="v">{carregandoLista ? '—' : resumo.parciais}</div>
         </div>
         <div className="tile">
-          <div className="k">Executados</div>
+          <div className="tile-top">
+            <span className="tile-icon">
+              <svg className="ic">
+                <use href="#i-check" />
+              </svg>
+            </span>
+            <span className="k">Executados</span>
+          </div>
           <div className="v">{carregandoLista ? '—' : resumo.executados}</div>
         </div>
         <div className="tile">
-          <div className="k">Recebidos hoje</div>
+          <div className="tile-top">
+            <span className="tile-icon">
+              <svg className="ic">
+                <use href="#i-in" />
+              </svg>
+            </span>
+            <span className="k">Recebidos hoje</span>
+          </div>
           <div className="v">{carregandoLista ? '—' : resumo.recebidosHoje}</div>
         </div>
       </div>
@@ -659,7 +700,7 @@ export function PainelPage() {
 
       {pedidoModalId != null && (
         <div className="modal-overlay" onClick={fecharModal}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+          <div className={`modal-box ${algumSubstituindo ? 'modal-box-lg' : ''}`} onClick={(e) => e.stopPropagation()}>
             {carregandoDetalhe && <p className="carregando">Carregando…</p>}
             {!carregandoDetalhe && detalhe && (
               <>
@@ -765,13 +806,22 @@ export function PainelPage() {
                           // substituto (linha ~113), reaproveitado aqui
                           // pro item pedido de verdade, não só pro
                           // substituto.
-                          const saldo = loteFefoPorItem.get(it.item_id_solicitado)?.saldoTotal ?? 0;
+                          const info = loteFefoPorItem.get(it.item_id_solicitado);
+                          const saldo = info?.saldoTotal ?? 0;
                           const insuficiente = saldo < it.quantidade_solicitada;
+                          const validade = info?.lote.data_validade ? `vence ${formatarData(info.lote.data_validade)}` : 'sem validade cadastrada';
                           return (
-                            <p className={`note ${insuficiente ? 'danger' : ''}`} style={{ marginTop: 4 }}>
-                              Saldo disponível em estoque: <strong>{saldo}</strong>
-                              {insuficiente && ' — não dá pra atender a quantidade solicitada inteira'}
-                            </p>
+                            <>
+                              <p className={`note ${insuficiente ? 'danger' : ''}`} style={{ marginTop: 4 }}>
+                                Saldo disponível em estoque: <strong>{saldo}</strong>
+                                {insuficiente && ' — não dá pra atender a quantidade solicitada inteira'}
+                              </p>
+                              {info && (
+                                <p className="note" style={{ marginTop: 2 }}>
+                                  Lote que será usado (FEFO): <strong>{info.lote.numero_lote ?? 's/ nº'}</strong> ({validade})
+                                </p>
+                              )}
+                            </>
                           );
                         })()}
 
@@ -827,7 +877,7 @@ export function PainelPage() {
 
                       {edicao.substituindo && (
                         <div className="grid" style={{ marginTop: 8 }}>
-                          <div className="field">
+                          <div className="field span2">
                             <label>Item que está sendo entregue</label>
                             <BuscaAutocomplete
                               itens={catalogo.filter((i) => i.ativo)}
@@ -866,7 +916,7 @@ export function PainelPage() {
                                 );
                               })()}
                           </div>
-                          <div className="field">
+                          <div className="field span2">
                             <label>Motivo da substituição</label>
                             <input
                               type="text"

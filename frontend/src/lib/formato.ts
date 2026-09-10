@@ -1,5 +1,16 @@
 /** Formatação compartilhada — evita duplicar Intl.* em cada página. */
 
+/** Remove acentos e caixa pra comparar texto de busca (2026-09-08,
+ * pedido do cliente: buscar "algodao" sem til deve achar "ALGODÃO") —
+ * usada em toda busca de item/lote do app (catálogo, lotes,
+ * autocomplete de substituição, formulário público). */
+export function normalizarBusca(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+}
+
 /** Converte um valor digitado no formato pt-BR ("1.234,56" ou "2,10") para
  * uma string decimal com ponto ("1234.56"), que é o que a API espera. */
 export function paraDecimalApi(valor: string): string {

@@ -123,12 +123,17 @@ export function EntradaCompraPage() {
             <label htmlFor="ec-nf">
               Nº nota fiscal <span className="req">*</span>
             </label>
+            {/* Sem `required` nativo (2026-09-09, mesmo bug de
+             * EmprestimosPage) — a validação de `aoSubmeter` já cobre
+             * isso com um Alerta visível; `required` bloqueava o clique
+             * em "Confirmar" com só um balão do navegador perto DESTE
+             * campo, fácil de não notar com o foco na tabela de itens
+             * mais abaixo — parecia botão travado. */}
             <input
               id="ec-nf"
               type="text"
               value={numeroNotaFiscal}
               onChange={(e) => setNumeroNotaFiscal(e.target.value)}
-              required
             />
           </div>
           <div className="field">

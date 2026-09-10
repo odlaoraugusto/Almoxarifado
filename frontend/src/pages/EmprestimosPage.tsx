@@ -164,13 +164,18 @@ export function EmprestimosPage() {
             <label htmlFor="emp-unidade">
               Unidade de origem <span className="req">*</span>
             </label>
+            {/* Sem atributo HTML `required` (2026-09-09, bug real) — a
+             * validação de `aoSubmeter` já cobre isso com um Alerta bem
+             * visível; o `required` nativo bloqueava o clique em
+             * "Confirmar registro" com só um balão do navegador perto
+             * DESTE campo, fácil de não notar com o foco na tabela de
+             * itens mais abaixo — parecia botão travado. */}
             <input
               id="emp-unidade"
               type="text"
               placeholder="ex.: Hospital Regional X"
               value={unidadeOrigem}
               onChange={(e) => setUnidadeOrigem(e.target.value)}
-              required
             />
           </div>
           <div className="field">

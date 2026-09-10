@@ -116,6 +116,7 @@ def tabela_estoque(relatorio: RelatorioEstoqueOut) -> TabelaRelatorio:
     colunas = [
         "Código",
         "Item",
+        "Fabricante",
         "Categoria",
         "Nº Lote",
         "Validade",
@@ -128,6 +129,7 @@ def tabela_estoque(relatorio: RelatorioEstoqueOut) -> TabelaRelatorio:
         [
             item.codigo,
             item.nome,
+            _texto(item.fabricante),
             _CATEGORIA_ITEM_LABEL.get(item.categoria, str(item.categoria)),
             _texto(item.numero_lote),
             formatar_data(item.data_validade),
@@ -143,7 +145,7 @@ def tabela_estoque(relatorio: RelatorioEstoqueOut) -> TabelaRelatorio:
         metadados=relatorio.metadados,
         colunas=colunas,
         linhas=linhas,
-        larguras_relativas=[0.8, 1.8, 1.1, 0.9, 0.9, 0.8, 0.9, 0.9, 0.8],
+        larguras_relativas=[0.8, 1.6, 1.2, 1.1, 0.9, 0.9, 0.8, 0.9, 0.9, 0.8],
     )
 
 

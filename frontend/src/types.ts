@@ -76,6 +76,7 @@ export interface ItemPublico {
   nome: string;
   apresentacao: string | null;
   categoria: CategoriaItem;
+  fabricante?: string | null;
 }
 
 /** Catálogo com saldo agregado (Σ lotes) — usado nas telas autenticadas. */
@@ -320,6 +321,7 @@ export interface RelatorioEstoqueItem {
   item_id: number;
   codigo: string;
   nome: string;
+  fabricante: string | null;
   categoria: CategoriaItem;
   lote_id: number | null;
   numero_lote: string | null;

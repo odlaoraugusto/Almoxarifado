@@ -149,16 +149,40 @@ class PedidoService:
         # conferência de pedido em vez de uma Entrada avulsa.
         if dados.quantidade_entregue > 0:
             if pedido_item.pedido.tipo == TipoPedidoEnum.devolucao:
-                lote = Lote(
-                    item_id=item.id,
-                    numero_lote=dados.numero_lote,
-                    data_validade=dados.data_validade,
-                    quantidade_atual=dados.quantidade_entregue,
-                    valor_unitario=dados.valor_unitario,
-                    origem=OrigemEnum.devolucao,
-                    usuario_entrada_id=usuario.id,
-                )
-                lote = self.lote_repository.create(db, lote)
+                # Se já existe um lote com a MESMA identidade física
+                # (mesmo item + nº de lote + validade — devolução não
+                # tem NF/AFM, então a chave para nesses 4 campos), soma
+                # nele em vez de criar linha nova (2026-09-09, pedido do
+                # cliente). Só tenta mergear quando nº de lote E validade
+                # vêm preenchidos (os dois são opcionais aqui) — não dá
+                # pra casar identidade com campo em branco.
+                lote = None
+                if dados.numero_lote and dados.data_validade:
+                    lote = self.lote_repository.buscar_para_merge(
+                        db,
+                        item.id,
+                        dados.numero_lote,
+                        dados.data_validade,
+                        None,
+                        None,
+                    )
+
+                if lote is not None:
+                    lote.quantidade_atual += dados.quantidade_entregue
+                    if lote.valor_unitario is None and dados.valor_unitario is not None:
+                        lote.valor_unitario = dados.valor_unitario
+                    lote = self.lote_repository.salvar(db, lote)
+                else:
+                    lote = Lote(
+                        item_id=item.id,
+                        numero_lote=dados.numero_lote,
+                        data_validade=dados.data_validade,
+                        quantidade_atual=dados.quantidade_entregue,
+                        valor_unitario=dados.valor_unitario,
+                        origem=OrigemEnum.devolucao,
+                        usuario_entrada_id=usuario.id,
+                    )
+                    lote = self.lote_repository.create(db, lote)
 
                 movimentacao = Movimentacao(
                     tipo=TipoMovimentacaoEnum.entrada,

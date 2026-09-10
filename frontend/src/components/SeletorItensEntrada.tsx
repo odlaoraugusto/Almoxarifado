@@ -143,13 +143,17 @@ export function SeletorItensEntrada({
                   </td>
                 )}
                 <td className="num">
+                  {/* Sem `required` nativo (2026-09-09) — cada página que
+                   * usa este seletor já valida quantidade > 0 no próprio
+                   * `aoSubmeter`, com Alerta visível; `required` aqui
+                   * bloqueava o envio com só um balão do navegador numa
+                   * linha da tabela, fácil de não notar. */}
                   <input
                     type="number"
                     min={1}
                     style={{ width: 90 }}
                     value={l.quantidade}
                     onChange={(e) => atualizar(l.item.id, { quantidade: e.target.value })}
-                    required
                   />
                 </td>
                 {mostrarCamposLote && (

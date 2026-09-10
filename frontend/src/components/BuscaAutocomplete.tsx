@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { normalizarBusca } from '../lib/formato';
 
 interface BuscaAutocompleteProps<T> {
   id?: string;
@@ -29,7 +30,7 @@ export function BuscaAutocomplete<T>({
   const [aberto, setAberto] = useState(false);
 
   const filtrados = valor.trim()
-    ? itens.filter((item) => rotulo(item).toLowerCase().includes(valor.trim().toLowerCase())).slice(0, 8)
+    ? itens.filter((item) => normalizarBusca(rotulo(item)).includes(normalizarBusca(valor.trim()))).slice(0, 8)
     : itens.slice(0, 8);
 
   return (

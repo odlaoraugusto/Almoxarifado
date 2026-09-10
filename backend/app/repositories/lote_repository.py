@@ -43,6 +43,43 @@ class LoteRepository:
             .first()
         )
 
+    def buscar_para_merge(
+        self,
+        db: Session,
+        item_id: int,
+        numero_lote: str,
+        data_validade,
+        numero_nota_fiscal: str | None,
+        numero_afm: str | None,
+    ) -> Lote | None:
+        """Acha um lote já existente com a MESMA identidade física — mesmo
+        item + nº de lote + validade + NF/AFM (2026-09-09, pedido do
+        cliente: "se for o mesmo lote, integra aquele estoque";
+        2026-09-10, ajuste: "independente da origem" — `origem` SAIU da
+        chave, um lote físico é o mesmo lote seja qual for o canal pelo
+        qual ele chegou: compra, doação, devolução ou transferência).
+        Mantém NF/AFM na chave pra não juntar duas compras de notas
+        fiscais diferentes só porque o nº de lote do fabricante
+        coincidiu (cada NF continua rastreável por si só). Comparação
+        null-safe: NF/AFM ambos nulos também conta como "igual" (cobre
+        doação/devolução, que não têm NF). Mesmo cuidado de
+        `.populate_existing()` + `with_for_update()` de
+        `get_by_id_for_update` acima."""
+        query = db.query(Lote).filter(
+            Lote.item_id == item_id,
+            Lote.numero_lote == numero_lote,
+            Lote.data_validade == data_validade,
+        )
+        query = query.filter(
+            Lote.numero_nota_fiscal.is_(None)
+            if numero_nota_fiscal is None
+            else Lote.numero_nota_fiscal == numero_nota_fiscal
+        )
+        query = query.filter(
+            Lote.numero_afm.is_(None) if numero_afm is None else Lote.numero_afm == numero_afm
+        )
+        return query.populate_existing().with_for_update().first()
+
     def listar_fefo(self, db: Session, item_id: int) -> list[Lote]:
         """Lotes com saldo > 0 do item, ordenados FEFO (First Expire,
         First Out) — lotes sem `data_validade` (material que não vence)

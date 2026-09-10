@@ -65,36 +65,62 @@ class EmprestimoService:
         registro: RegistroEmprestimo,
         dados: EmprestimoCreate,
     ) -> list[EmprestimoDetalheItemOut]:
-        """Devolução ou recebimento em permuta — cria um LOTE novo por
-        item (nunca incrementa um lote existente, mesmo padrão da Entrada
-        por compra/doação em `ItemService.registrar_entrada`)."""
+        """Devolução ou recebimento em permuta. Se já existe um lote com a
+        MESMA identidade física (item + nº de lote + validade + origem +
+        AFM), soma nele em vez de criar linha nova (2026-09-09, pedido
+        do cliente: "se for o mesmo lote, integra aquele estoque") — ver
+        `LoteRepository.buscar_para_merge`. Cria a `Movimentacao` de
+        qualquer forma, então o rastro de auditoria por evento continua
+        intacto mesmo quando o lote em si é reaproveitado."""
         detalhes: list[EmprestimoDetalheItemOut] = []
 
         for item_dados in dados.itens:
-            lote = Lote(
-                item_id=item_dados.item_id,
-                numero_lote=item_dados.numero_lote,
-                data_validade=item_dados.data_validade,
-                quantidade_atual=item_dados.quantidade,
-                valor_unitario=item_dados.valor_unitario,
-                origem=OrigemEnum.emprestimo,
-                emprestimo_id=registro.id,
-                usuario_entrada_id=usuario.id,
-            )
-            lote = self.lote_repository.create(db, lote)
+            lote = None
+            if item_dados.numero_lote and item_dados.data_validade:
+                lote = self.lote_repository.buscar_para_merge(
+                    db,
+                    item_dados.item_id,
+                    item_dados.numero_lote,
+                    item_dados.data_validade,
+                    None,
+                    None,
+                )
+
+            if lote is not None:
+                lote.quantidade_atual += item_dados.quantidade
+                if lote.valor_unitario is None and item_dados.valor_unitario is not None:
+                    lote.valor_unitario = item_dados.valor_unitario
+                lote = self.lote_repository.salvar(db, lote)
+            else:
+                lote = Lote(
+                    item_id=item_dados.item_id,
+                    numero_lote=item_dados.numero_lote,
+                    data_validade=item_dados.data_validade,
+                    quantidade_atual=item_dados.quantidade,
+                    valor_unitario=item_dados.valor_unitario,
+                    origem=OrigemEnum.emprestimo,
+                    emprestimo_id=registro.id,
+                    usuario_entrada_id=usuario.id,
+                )
+                lote = self.lote_repository.create(db, lote)
 
             movimentacao = Movimentacao(
                 tipo=TipoMovimentacaoEnum.entrada,
                 lote_id=lote.id,
                 quantidade=item_dados.quantidade,
                 usuario_id=usuario.id,
+                emprestimo_id=registro.id,
             )
             self.movimentacao_repository.create(db, movimentacao)
 
             detalhes.append(
                 EmprestimoDetalheItemOut(
                     item=ItemResumoOut.model_validate(lote.item),
-                    quantidade=lote.quantidade_atual,
+                    # Quantidade DESTE evento, não o saldo acumulado do
+                    # lote — importante desde que passou a poder mergear
+                    # num lote já existente (lote.quantidade_atual seria
+                    # o total, não o que chegou agora).
+                    quantidade=item_dados.quantidade,
                     lote_id=lote.id,
                 )
             )
@@ -144,13 +170,20 @@ class EmprestimoService:
 
     def _detalhes_de(self, registro: RegistroEmprestimo) -> list[EmprestimoDetalheItemOut]:
         if registro.direcao == DirecaoEmprestimoEnum.entrada:
+            # Via `Movimentacao` (não `registro.lotes_criados`/
+            # `lote.quantidade_atual`) — desde que a entrada pode mergear
+            # num lote já existente (2026-09-09), nem sempre cria um Lote
+            # NOVO vinculado a este registro, e o saldo do lote deixou de
+            # equivaler à quantidade desta operação específica. Mesmo
+            # padrão já usado abaixo pro branch `saida`.
             return [
                 EmprestimoDetalheItemOut(
-                    item=ItemResumoOut.model_validate(lote.item),
-                    quantidade=lote.quantidade_atual,
-                    lote_id=lote.id,
+                    item=ItemResumoOut.model_validate(movimentacao.lote.item),
+                    quantidade=movimentacao.quantidade,
+                    lote_id=movimentacao.lote_id,
+                    movimentacao_id=movimentacao.id,
                 )
-                for lote in registro.lotes_criados
+                for movimentacao in registro.movimentacoes
             ]
 
         return [

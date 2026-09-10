@@ -3,19 +3,12 @@ import type { FormEvent, KeyboardEvent } from 'react';
 import { jsPDF } from 'jspdf';
 import { api, mensagemErro } from '../lib/api';
 import { HOSPITAL_SIGLA } from '../lib/instituicao';
-import { labelCategoriaItem } from '../lib/formato';
+import { labelCategoriaItem, normalizarBusca as normalizar } from '../lib/formato';
 import type { ItemPublico, PedidoCriarPayload, PedidoOut, Setor, TipoPedido } from '../types';
 
 interface LinhaPedido {
   item: ItemPublico;
   quantidade: number;
-}
-
-function normalizar(texto: string): string {
-  return texto
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
 }
 
 /** Formulário público de pedido de material — sem login, acessível a
@@ -275,7 +268,13 @@ export function PedidoPublicoPage() {
             <div className="grid-pub grid-pub-2">
               <div className="form-group">
                 <label htmlFor="pp-setor">Setor Solicitante *</label>
-                <select id="pp-setor" value={setorId} onChange={(e) => setSetorId(e.target.value)} required>
+                {/* Sem `required` nativo (2026-09-09, bug real) —
+                 * `validar()`/`aoSubmeter` já cobrem isso e ainda dão
+                 * scroll pro topo mostrando os campos faltando; o
+                 * `required` nativo bloqueava o envio com só um balão do
+                 * navegador aqui em cima, fácil de não notar com o foco
+                 * na lista de itens mais abaixo — parecia botão travado. */}
+                <select id="pp-setor" value={setorId} onChange={(e) => setSetorId(e.target.value)}>
                   <option value="">{carregandoCatalogo ? 'Carregando setores...' : 'Selecione o setor...'}</option>
                   {setores.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -292,7 +291,6 @@ export function PedidoPublicoPage() {
                   placeholder="Nome do colaborador"
                   value={responsavel}
                   onChange={(e) => setResponsavel(e.target.value)}
-                  required
                 />
               </div>
             </div>

@@ -51,6 +51,7 @@ class ItemResumoOut(BaseModel):
     nome: str
     apresentacao: str
     categoria: CategoriaItemEnum
+    fabricante: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
