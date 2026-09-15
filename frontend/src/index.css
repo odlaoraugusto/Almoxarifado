@@ -1140,27 +1140,72 @@ tbody tr.selecionada {
   font-size: 13.5px;
   line-height: 1.6;
 }
+/* Versão colapsável (2026-09-11, pedido do cliente — mesmo tratamento
+   já usado na farmácia: `<details>` fechado por padrão na tela
+   Estoque, some o `<ul>` inteiro, sobra só o resumo clicável). */
+.alerta-bloco summary {
+  margin: 0;
+  font-size: 14px;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.alerta-bloco summary::-webkit-details-marker {
+  display: none;
+}
+.alerta-bloco summary::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+  opacity: 0.7;
+}
+.alerta-bloco[open] summary {
+  margin-bottom: 8px;
+}
+.alerta-bloco[open] summary::after {
+  transform: rotate(-135deg);
+}
 .alerta-critico {
   background: var(--danger-bg);
   border-left-color: var(--danger);
 }
-.alerta-critico h3 { color: var(--danger); }
+.alerta-critico h3,
+.alerta-critico summary {
+  color: var(--danger);
+}
 .alerta-vencido {
   background: var(--danger-bg);
   border-left: 5px solid var(--danger);
 }
-.alerta-vencido h3 { color: var(--danger); }
+.alerta-vencido h3,
+.alerta-vencido summary {
+  color: var(--danger);
+}
 .alerta-vencido li { font-weight: 600; }
 .alerta-amarelo {
   background: var(--warn-bg);
   border-left-color: var(--warn);
 }
-.alerta-amarelo h3 { color: var(--warn); }
+.alerta-amarelo h3,
+.alerta-amarelo summary {
+  color: var(--warn);
+}
 .alerta-roxo {
   background: var(--roxo-bg);
   border-left-color: var(--roxo);
 }
-.alerta-roxo h3 { color: var(--roxo); }
+.alerta-roxo h3,
+.alerta-roxo summary {
+  color: var(--roxo);
+}
 
 .busca-estoque {
   max-width: 280px;

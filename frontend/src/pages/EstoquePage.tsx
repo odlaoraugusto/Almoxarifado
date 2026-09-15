@@ -342,8 +342,8 @@ export function EstoquePage() {
           </div>
 
           {itensCriticos.length > 0 && (
-            <div className="alerta-bloco alerta-critico">
-              <h3>Estoque crítico</h3>
+            <details className="alerta-bloco alerta-critico">
+              <summary>Estoque crítico — {itensCriticos.length} item(ns)</summary>
               <ul>
                 {itensCriticos.map((i) => (
                   <li key={i.id}>
@@ -351,7 +351,7 @@ export function EstoquePage() {
                   </li>
                 ))}
               </ul>
-            </div>
+            </details>
           )}
 
           {permissoes.gerenciarItens && (
@@ -616,8 +616,8 @@ export function EstoquePage() {
           </div>
 
           {lotesVencendo.length > 0 && (
-            <div className="alerta-bloco alerta-critico">
-              <h3>Lotes vencidos ou vencendo</h3>
+            <details className="alerta-bloco alerta-critico">
+              <summary>Lotes vencidos ou vencendo — {lotesVencendo.length} lote(s)</summary>
               <ul>
                 {lotesVencendo.map((l) => {
                   const dias = diasAteVencer(l.data_validade!);
@@ -636,7 +636,7 @@ export function EstoquePage() {
                   );
                 })}
               </ul>
-            </div>
+            </details>
           )}
 
           {loteAjuste != null && (
